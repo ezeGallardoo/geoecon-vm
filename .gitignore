@@ -1,0 +1,16 @@
+node_modules/
+.next/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.local
+.DS_Store
+data/raw/
+*.shp
+*.shx
+*.dbf
+*.prj
+.pytest_cache/
+apps/web/prisma/*.db

@@ -1,0 +1,62 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Espejo de db/init. La geometría se consulta con SQL crudo.
+model Business {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  placeId                    String    @unique @map("place_id") @db.VarChar(128)
+  name                       String    @db.VarChar(255)
+  category                   String    @db.VarChar(100)
+  address                    String?   @db.VarChar(255)
+  phone                      String?   @db.VarChar(50)
+  website                    String?
+  geom                       Unsupported("geometry(Point,4326)")
+  zoneId                     String?   @map("zone_id") @db.VarChar(64)
+  source                     String    @db.VarChar(32)
+  rating                     Decimal?  @db.Decimal(2, 1)
+  reviewsTotal               Int       @default(0) @map("reviews_total")
+  reviewsLast90d             Int       @default(0) @map("reviews_last_90d")
+  weeklyOpenHours            Int?      @map("weekly_open_hours")
+  cuit                       String?   @db.VarChar(13)
+  legalName                  String?   @map("legal_name") @db.VarChar(255)
+  taxRegime                  String?   @map("tax_regime") @db.VarChar(50)
+  activityCodeClae           String?   @map("activity_code_clae") @db.VarChar(20)
+  bcraWorstStatus            Int?      @map("bcra_worst_status") @db.SmallInt
+  bcraTotalDebtArs           Decimal   @default(0) @map("bcra_total_debt_ars") @db.Decimal(15, 2)
+  activityTier               Int       @default(1) @map("activity_tier") @db.SmallInt
+  estimatedMonthlyRevenueArs Decimal?  @map("estimated_monthly_revenue_ars") @db.Decimal(15, 2)
+  updatedAt                  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
+
+  zone UrbanZone? @relation(fields: [zoneId], references: [zoneId])
+
+  @@index([category])
+  @@index([cuit])
+  @@map("businesses")
+}
+
+model UrbanZone {
+  zoneId           String  @id @map("zone_id") @db.VarChar(64)
+  neighborhoodName String? @map("neighborhood_name") @db.VarChar(100)
+  geom             Unsupported("geometry(MultiPolygon,4326)")
+  population       Int     @default(0)
+  households       Int     @default(0)
+  landValueM2      Decimal? @map("land_value_m2") @db.Decimal(12, 2)
+  businesses       Business[]
+
+  @@map("urban_zones")
+}
+
+model CategoryParam {
+  category        String  @id @db.VarChar(100)
+  label           String  @db.VarChar(120)
+  ticketArs       Decimal @map("ticket_ars") @db.Decimal(12, 2)
+  visitsPerReview Decimal @map("visits_per_review") @db.Decimal(8, 2)
+
+  @@map("category_params")
+}
