@@ -48,6 +48,7 @@ CREATE TABLE category_params (
     label VARCHAR(120) NOT NULL,
     ticket_ars NUMERIC(12,2) NOT NULL,
     visits_per_review NUMERIC(8,2) NOT NULL DEFAULT 40,
+    purchases_per_capita_month NUMERIC(8,3) NOT NULL DEFAULT 0.2,
     notes TEXT NOT NULL
 );
 
@@ -115,6 +116,16 @@ CREATE TABLE businesses (
 CREATE INDEX idx_scrape_grid_bbox ON scrape_grid USING GIST (bbox);
 CREATE INDEX idx_scrape_grid_status ON scrape_grid (status);
 CREATE INDEX idx_scrape_jobs_pending ON scrape_jobs (source, query, status, cell_id);
+CREATE TABLE neighborhoods (
+    neighborhood_id VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(120) NOT NULL,
+    geom GEOMETRY(MultiPolygon, 4326) NOT NULL,
+    population INTEGER NOT NULL DEFAULT 0,
+    land_value_m2 NUMERIC(12,2),
+    source VARCHAR(40) NOT NULL DEFAULT 'municipio'
+);
+
+CREATE INDEX idx_neighborhoods_geom ON neighborhoods USING GIST (geom);
 CREATE INDEX idx_urban_zones_geom ON urban_zones USING GIST (geom);
 CREATE INDEX idx_urban_zones_geog ON urban_zones USING GIST ((geom::geography));
 CREATE INDEX idx_businesses_geom ON businesses USING GIST (geom);

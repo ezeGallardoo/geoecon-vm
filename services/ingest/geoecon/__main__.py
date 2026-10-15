@@ -14,6 +14,7 @@ def main() -> None:
     sub.add_parser("grid", help="Regenera la grilla de 400 m de Villa María")
     sub.add_parser("osm", help="Importa comercios de OpenStreetMap en el bbox")
     sub.add_parser("estimate", help="Recalcula tier e ingreso estimado")
+    sub.add_parser("reclassify", help="Saca de Otro los comercios cuya etiqueta OSM ya tiene rubro")
 
     bcra = sub.add_parser("bcra", help="Consulta la Central de Deudores para un CUIT ya vinculado")
     bcra.add_argument("--cuit", required=True)
@@ -22,6 +23,14 @@ def main() -> None:
     land = sub.add_parser("idecor", help="Carga el valor de la tierra desde una capa WFS")
     land.add_argument("--layer", required=True, help="typeName, por ejemplo el que devuelve idecor-layers")
     land.add_argument("--value-field", required=True, help="Atributo numérico del VUT en esa capa")
+
+    sub.add_parser(
+        "census-vm",
+        help="Recorta el CSV nacional 2022 al departamento General San Martín y lo carga",
+    )
+    barrios = sub.add_parser("barrios", help="Carga los barrios municipales y les asigna el VUT")
+    barrios.add_argument("--path", type=Path, help="Shapefile local. Si se omite, descarga el de datos abiertos.")
+    sub.add_parser("villa-nueva", help="Carga las zonas del código urbanístico 2026 de Villa Nueva")
 
     census = sub.add_parser("indec", help="Importa radios censales GeoJSON o Shapefile")
     census.add_argument("--path", required=True, type=Path)
@@ -60,6 +69,10 @@ def main() -> None:
             count = conn.execute("SELECT recalculate_estimates() AS n").fetchone()["n"]
             conn.commit()
             print(f"estimados: {count}")
+        elif args.command == "reclassify":
+            from geoecon.categories import reclassify_otro
+
+            print(f"reclasificados: {reclassify_otro(conn)}")
         elif args.command == "bcra":
             from geoecon.bcra import apply_bcra
 
@@ -73,6 +86,33 @@ def main() -> None:
             from geoecon.idecor import import_land_value
 
             print(f"parcelas leídas: {import_land_value(conn, settings, args.layer, args.value_field)}")
+        elif args.command == "barrios":
+            from geoecon.barrios import import_barrios
+
+            print(f"barrios: {import_barrios(conn, args.path)}")
+        elif args.command == "villa-nueva":
+            from geoecon.barrios import import_villa_nueva
+
+            print(f"zonas villa nueva: {import_villa_nueva(conn, settings.idecor_wfs_url)}")
+        elif args.command == "census-vm":
+            from geoecon.indec import import_zones, prepare_san_martin
+
+            source = Path("/data/raw/radios-censales-2022.csv")
+            target = Path("/data/raw/san-martin-2022.geojson")
+            prepare_san_martin(source, target)
+            print(
+                "zonas: "
+                + str(
+                    import_zones(
+                        conn,
+                        target,
+                        "codigo",
+                        "poblacion",
+                        None,
+                        "nombre",
+                    )
+                )
+            )
         elif args.command == "indec":
             from geoecon.indec import import_zones
 
@@ -101,6 +141,11 @@ def main() -> None:
 
 
 def _selftest() -> None:
+    from geoecon.barrios import zone_name
+
+    assert zone_name("Rural Intensiva de PequeÃ±a Escala") == "Rural Intensiva de Pequeña Escala"
+    assert zone_name("Circunvalacion y RN N158") == "Circunvalacion y RN N158"
+    assert zone_name("Central en Altura") == "Central en Altura"
     assert weekly_hours_from_osm("24/7") == 168
     assert weekly_hours_from_osm("Mo-Fr 09:00-18:00") == 45
     assert weekly_hours_from_osm("horario raro") is None

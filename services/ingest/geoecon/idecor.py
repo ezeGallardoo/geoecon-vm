@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 import httpx
-from shapely.geometry import shape
+from shapely.geometry import box, shape
 
 from geoecon.config import Settings
 
@@ -39,9 +39,9 @@ def import_land_value(conn, settings: Settings, type_name: str, value_field: str
             "typeName": type_name,
             "outputFormat": "application/json",
             "srsName": "EPSG:4326",
-            "bbox": f"{west},{south},{east},{north}",
+            "bbox": f"{west},{south},{east},{north},EPSG:4326",
         },
-        timeout=300,
+        timeout=600,
         headers={"User-Agent": "GeoEconVM/2.0 (uso interno Villa Maria)"},
     )
     response.raise_for_status()
@@ -55,21 +55,30 @@ def import_land_value(conn, settings: Settings, type_name: str, value_field: str
         ) ON COMMIT DROP
         """
     )
-    loaded = 0
+    rows: list[tuple[str, float]] = []
     for feature in features:
         props = feature.get("properties") or {}
         raw = props.get(value_field)
         geometry = feature.get("geometry")
         if raw in (None, "") or not geometry:
             continue
-        geom = shape(geometry)
-        if geom.is_empty:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
             continue
-        conn.execute(
+        if value <= 0:
+            continue
+        geom = shape(geometry)
+        if geom.is_empty or not geom.intersects(box(west, south, east, north)):
+            continue
+        rows.append((json.dumps(geometry), value))
+    if rows:
+        conn.cursor().executemany(
             "INSERT INTO land_parcels (geom, value) VALUES (ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326), %s)",
-            (json.dumps(geometry), raw),
+            rows,
         )
-        loaded += 1
+    loaded = len(rows)
+    conn.execute("CREATE INDEX ON land_parcels USING GIST (geom)")
 
     zones = conn.execute("SELECT COUNT(*) AS n FROM urban_zones").fetchone()["n"]
     if zones:

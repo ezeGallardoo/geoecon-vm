@@ -43,7 +43,84 @@ OSM_RULES: dict[tuple[str, str], str] = {
     ("amenity", "clinic"): "institucion",
     ("amenity", "bank"): "institucion",
     ("office", "government"): "institucion",
+    ("shop", "agrarian"): "agro",
+    ("shop", "farm"): "agro",
+    ("shop", "car"): "concesionaria",
+    ("shop", "motorcycle"): "concesionaria",
+    ("shop", "caravan"): "concesionaria",
+    ("shop", "electronics"): "electronica",
+    ("shop", "computer"): "electronica",
+    ("shop", "mobile_phone"): "electronica",
+    ("shop", "hifi"): "electronica",
+    ("shop", "furniture"): "muebleria",
+    ("shop", "interior_decoration"): "muebleria",
+    ("shop", "carpet"): "muebleria",
+    ("shop", "bed"): "muebleria",
+    ("office", "estate_agent"): "inmobiliaria",
+    ("shop", "estate_agent"): "inmobiliaria",
+    ("shop", "cosmetics"): "perfumeria",
+    ("shop", "perfumery"): "perfumeria",
+    ("shop", "optician"): "optica",
+    ("shop", "pet"): "mascotas",
+    ("shop", "paint"): "ferreteria",
+    ("shop", "glaziery"): "ferreteria",
+    ("shop", "doors"): "ferreteria",
+    ("shop", "tool_hire"): "ferreteria",
+    ("shop", "electrical"): "ferreteria",
+    ("shop", "lighting"): "ferreteria",
+    ("shop", "locksmith"): "ferreteria",
+    ("shop", "pastry"): "panaderia",
+    ("shop", "chocolate"): "panaderia",
+    ("shop", "dairy"): "almacen",
+    ("shop", "cheese"): "almacen",
+    ("shop", "pasta"): "almacen",
+    ("shop", "seafood"): "almacen",
+    ("shop", "deli"): "almacen",
+    ("shop", "beverages"): "despensa",
+    ("shop", "alcohol"): "despensa",
+    ("shop", "variety_store"): "despensa",
+    ("shop", "health_food"): "despensa",
+    ("shop", "herbalist"): "despensa",
+    ("shop", "fabric"): "indumentaria",
+    ("shop", "jewelry"): "indumentaria",
+    ("shop", "boutique"): "indumentaria",
+    ("shop", "baby_goods"): "indumentaria",
+    ("shop", "tailor"): "indumentaria",
+    ("shop", "sports"): "indumentaria",
+    ("shop", "stationery"): "libreria",
+    ("shop", "copyshop"): "libreria",
+    ("shop", "printer_ink"): "libreria",
+    ("shop", "motorcycle_repair"): "taller_mecanico",
+    ("shop", "fuel"): "estacion_servicio",
+    ("shop", "department_store"): "supermercado",
+    ("shop", "hearing_aids"): "farmacia",
+    ("shop", "medical_supply"): "farmacia",
+    ("shop", "massage"): "peluqueria",
+    ("shop", "lottery"): "kiosco",
+    ("amenity", "language_school"): "institucion",
+    ("amenity", "place_of_worship"): "institucion",
+    ("amenity", "community_centre"): "institucion",
 }
+
+
+def reclassify_otro(conn) -> int:
+    """Mueve los comercios que quedaron en otro cuando ahora hay una etiqueta conocida."""
+    rows = conn.execute(
+        "SELECT id, attributes FROM businesses WHERE category = 'otro'"
+    ).fetchall()
+    updated = 0
+    for row in rows:
+        tags = ((row["attributes"] or {}).get("osm") or {})
+        category = category_from_tags(tags)
+        if category and category != "otro":
+            conn.execute(
+                "UPDATE businesses SET category = %s WHERE id = %s",
+                (category, row["id"]),
+            )
+            updated += 1
+    conn.execute("SELECT recalculate_estimates()")
+    conn.commit()
+    return updated
 
 
 def category_from_tags(tags: dict[str, str]) -> str | None:

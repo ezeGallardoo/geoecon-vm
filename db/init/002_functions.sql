@@ -336,7 +336,35 @@ BEGIN
                COUNT(z.zone_id)::INTEGER AS zones
         FROM urban_zones z
         CROSS JOIN bounds
-        WHERE ST_Intersects(z.geom::geography, bounds.buf)
+        WHERE z.source = 'indec'
+          AND ST_Intersects(z.geom::geography, bounds.buf)
+    ),
+    land AS (
+        SELECT ROUND(AVG(n.land_value_m2) FILTER (WHERE n.land_value_m2 > 0))::NUMERIC AS land_value
+        FROM neighborhoods n
+        CROSS JOIN bounds
+        WHERE ST_Intersects(n.geom::geography, bounds.buf)
+    ),
+    here AS (
+        SELECT COALESCE(
+            (
+                SELECT n.source
+                FROM neighborhoods n
+                WHERE ST_Covers(n.geom, ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326))
+                ORDER BY CASE n.source WHEN 'idecor-vn' THEN 0 ELSE 1 END
+                LIMIT 1
+            ),
+            'departamento'
+        ) AS source
+    ),
+    city_land AS (
+        SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY land_value_m2) AS median
+        FROM neighborhoods
+        WHERE land_value_m2 IS NOT NULL AND land_value_m2 > 0
+          AND (
+            (SELECT source FROM here) = 'departamento'
+            OR source = (SELECT source FROM here)
+          )
     ),
     cats AS (
         SELECT
@@ -347,30 +375,114 @@ BEGIN
             COALESCE(ROUND(AVG(h.estimated_monthly_revenue_ars), 2), 0) AS avg_revenue
         FROM hits h
         GROUP BY h.category
+    ),
+    city AS (
+        SELECT CASE
+            WHEN (SELECT source FROM here) = 'departamento' THEN (
+                SELECT COALESCE(SUM(population), 0)::NUMERIC
+                FROM urban_zones
+                WHERE source = 'indec'
+            )
+            ELSE (
+                SELECT COALESCE(SUM(population), 0)::NUMERIC
+                FROM neighborhoods
+                WHERE source = (SELECT source FROM here)
+            )
+        END AS population
+    ),
+    city_cats AS (
+        SELECT b.category, COUNT(*)::NUMERIC AS total
+        FROM businesses b
+        WHERE (SELECT source FROM here) = 'departamento'
+           OR EXISTS (
+                SELECT 1
+                FROM neighborhoods n
+                WHERE n.source = (SELECT source FROM here)
+                  AND ST_Covers(n.geom, b.geom)
+           )
+        GROUP BY b.category
     )
     SELECT jsonb_build_object(
         'populationIntersected', (SELECT population FROM pop),
         'zonesIntersected', (SELECT zones FROM pop),
+        'cityName', CASE (SELECT source FROM here)
+            WHEN 'idecor-vn' THEN 'Villa Nueva'
+            WHEN 'municipio' THEN 'Villa María'
+            ELSE 'General San Martín'
+        END,
+        'landValueM2', (SELECT land_value FROM land),
+        'landCoef', (
+            SELECT CASE
+                WHEN land.land_value IS NULL OR city_land.median IS NULL OR city_land.median <= 0 THEN NULL
+                ELSE ROUND(LEAST(
+                    (SELECT value FROM model_settings WHERE key = 'zone_coef_max'),
+                    GREATEST(
+                        (SELECT value FROM model_settings WHERE key = 'zone_coef_min'),
+                        land.land_value / city_land.median
+                    )
+                )::NUMERIC, 2)
+            END
+            FROM land, city_land
+        ),
         'businessCount', (SELECT COUNT(*)::INTEGER FROM hits),
         'avgRevenueArs', (SELECT ROUND(AVG(estimated_monthly_revenue_ars), 2) FROM hits),
         'totalRevenueArs', (SELECT ROUND(SUM(estimated_monthly_revenue_ars), 2) FROM hits),
         'categories', COALESCE((
             SELECT jsonb_agg(
                 jsonb_build_object(
-                    'category', c.category,
-                    'total', c.total,
-                    'avgReviews', c.avg_reviews,
-                    'totalRevenueArs', c.total_revenue,
-                    'avgRevenueArs', c.avg_revenue,
+                    'category', cp.category,
+                    'total', COALESCE(c.total, 0),
+                    'avgReviews', COALESCE(c.avg_reviews, 0),
+                    'totalRevenueArs', COALESCE(c.total_revenue, 0),
+                    'avgRevenueArs', COALESCE(c.avg_revenue, 0),
                     'inhabitantsPerBusiness', CASE
-                        WHEN c.total > 0 AND (SELECT population FROM pop) > 0
+                        WHEN COALESCE(c.total, 0) > 0 AND (SELECT population FROM pop) > 0
                         THEN ROUND((SELECT population FROM pop)::NUMERIC / c.total)
                         ELSE NULL
-                    END
+                    END,
+                    'cityInhabitantsPerBusiness', CASE
+                        WHEN cc.total > 0 AND (SELECT population FROM city) > 0
+                        THEN ROUND((SELECT population FROM city) / cc.total)
+                        ELSE NULL
+                    END,
+                    'coverage', CASE
+                        WHEN (SELECT population FROM pop) <= 0
+                          OR cc.total IS NULL OR cc.total <= 0
+                          OR (SELECT population FROM city) <= 0
+                        THEN NULL
+                        ELSE ROUND(
+                            (COALESCE(c.total, 0)::NUMERIC * (SELECT population FROM city))
+                            / ((SELECT population FROM pop) * cc.total),
+                            3
+                        )
+                    END,
+                    'gap', CASE
+                        WHEN (SELECT population FROM pop) <= 0
+                          OR cc.total IS NULL OR cc.total <= 0
+                          OR (SELECT population FROM city) <= 0
+                        THEN NULL
+                        WHEN (
+                            (COALESCE(c.total, 0)::NUMERIC * (SELECT population FROM city))
+                            / ((SELECT population FROM pop) * cc.total)
+                        ) < 0.7 THEN 'hueco'
+                        WHEN (
+                            (COALESCE(c.total, 0)::NUMERIC * (SELECT population FROM city))
+                            / ((SELECT population FROM pop) * cc.total)
+                        ) > 1.4 THEN 'saturado'
+                        ELSE 'pareja'
+                    END,
+                    'potentialConsumptionArs', ROUND(
+                        (SELECT population FROM pop)::NUMERIC
+                        * COALESCE(cp.ticket_ars, 0)
+                        * COALESCE(cp.purchases_per_capita_month, 0),
+                        2
+                    )
                 )
-                ORDER BY c.total DESC, c.category
+                ORDER BY COALESCE(c.total, 0) DESC, cp.category
             )
-            FROM cats c
+            FROM category_params cp
+            LEFT JOIN cats c ON c.category = cp.category
+            LEFT JOIN city_cats cc ON cc.category = cp.category
         ), '[]'::JSONB)
     ) INTO v_report;
 
@@ -413,4 +525,139 @@ BEGIN
 
     RETURN v_id;
 END;
+$$;
+
+-- Las 15 celdas de 400 m más descubiertas del rubro.
+-- La población se reparte por el área de intersección con el radio censal.
+-- El suelo solo inclina el ranking: no fabrica consumo.
+CREATE OR REPLACE FUNCTION cell_gaps(p_category TEXT)
+RETURNS JSONB
+LANGUAGE sql
+STABLE
+AS $$
+    WITH params AS (
+        SELECT
+            COALESCE((SELECT value FROM model_settings WHERE key = 'zone_coef_min'), 0.75) AS coef_min,
+            COALESCE((SELECT value FROM model_settings WHERE key = 'zone_coef_max'), 1.45) AS coef_max
+    ),
+    city AS (
+        SELECT COALESCE(SUM(population), 0)::NUMERIC AS population
+        FROM urban_zones
+        WHERE source = 'indec'
+    ),
+    city_cat AS (
+        SELECT COUNT(*)::NUMERIC AS total
+        FROM businesses
+        WHERE category = p_category
+    ),
+    ticket AS (
+        SELECT ticket_ars, purchases_per_capita_month
+        FROM category_params
+        WHERE category = p_category
+    ),
+    median AS (
+        SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY land_value_m2) AS value
+        FROM urban_zones
+        WHERE source = 'indec' AND land_value_m2 IS NOT NULL AND land_value_m2 > 0
+    ),
+    cells AS (
+        SELECT
+            g.cell_id,
+            g.center_lat,
+            g.center_lng,
+            g.bbox,
+            COALESCE(SUM(
+                z.population::NUMERIC
+                * ST_Area(ST_Intersection(g.bbox, z.geom)::geography)
+                / NULLIF(ST_Area(z.geom::geography), 0)
+            ), 0) AS population,
+            AVG(z.land_value_m2) FILTER (WHERE z.land_value_m2 > 0) AS land_value
+        FROM scrape_grid g
+        LEFT JOIN urban_zones z
+            ON z.source = 'indec' AND ST_Intersects(g.bbox, z.geom)
+        GROUP BY g.cell_id, g.center_lat, g.center_lng, g.bbox
+    ),
+    counted AS (
+        SELECT
+            c.*,
+            (
+                SELECT COUNT(*)::INTEGER
+                FROM businesses b
+                WHERE b.category = p_category
+                  AND ST_Contains(c.bbox, b.geom)
+            ) AS shops
+        FROM cells c
+    ),
+    scored AS (
+        SELECT
+            counted.*,
+            CASE
+                WHEN population <= 0
+                  OR (SELECT total FROM city_cat) <= 0
+                  OR (SELECT population FROM city) <= 0
+                THEN NULL
+                ELSE (shops::NUMERIC * (SELECT population FROM city))
+                     / (population * (SELECT total FROM city_cat))
+            END AS coverage,
+            CASE
+                WHEN (SELECT value FROM median) IS NULL OR land_value IS NULL OR land_value <= 0 THEN 1
+                ELSE LEAST(
+                    (SELECT coef_max FROM params),
+                    GREATEST(
+                        (SELECT coef_min FROM params),
+                        land_value / (SELECT value FROM median)
+                    )
+                )
+            END AS land_coef
+        FROM counted
+    ),
+    ranked AS (
+        SELECT
+            scored.*,
+            CASE
+                WHEN coverage IS NULL THEN NULL
+                ELSE GREATEST(0, 1 - coverage) * land_coef
+            END AS opportunity
+        FROM scored
+        WHERE population > 0
+    )
+    SELECT jsonb_build_object(
+        'type', 'FeatureCollection',
+        'features', COALESCE((
+            SELECT jsonb_agg(feature ORDER BY opportunity DESC NULLS LAST, cell_id)
+            FROM (
+                SELECT
+                    jsonb_build_object(
+                        'type', 'Feature',
+                        'geometry', ST_AsGeoJSON(bbox)::JSONB,
+                        'properties', jsonb_build_object(
+                            'cellId', cell_id,
+                            'lat', center_lat,
+                            'lng', center_lng,
+                            'population', ROUND(population),
+                            'businessCount', shops,
+                            'coverage', ROUND(coverage::NUMERIC, 3),
+                            'gap', CASE
+                                WHEN coverage IS NULL THEN NULL
+                                WHEN coverage < 0.7 THEN 'hueco'
+                                WHEN coverage > 1.4 THEN 'saturado'
+                                ELSE 'pareja'
+                            END,
+                            'opportunity', ROUND(opportunity::NUMERIC, 3),
+                            'landCoef', ROUND(land_coef::NUMERIC, 3),
+                            'potentialConsumptionArs', ROUND((
+                                population
+                                * COALESCE((SELECT ticket_ars FROM ticket), 0)
+                                * COALESCE((SELECT purchases_per_capita_month FROM ticket), 0)
+                            )::NUMERIC, 2)
+                        )
+                    ) AS feature,
+                    opportunity,
+                    cell_id
+                FROM ranked
+                ORDER BY opportunity DESC NULLS LAST, cell_id
+                LIMIT 15
+            ) top
+        ), '[]'::JSONB)
+    );
 $$;

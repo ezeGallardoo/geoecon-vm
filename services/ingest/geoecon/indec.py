@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import csv
 import json
+import sys
 from pathlib import Path
 
 import shapefile
@@ -48,6 +50,48 @@ def _prj_text(path: Path) -> str | None:
     return None
 
 
+def prepare_san_martin(csv_path: Path, out_path: Path) -> int:
+    """Recorta los radios 2022 del departamento General San Martín (Córdoba, 14-042).
+
+    El CSV nacional de INDEC trae población y la geometría en WKT. El centro de
+    Villa María cae en el departamento 042.
+    """
+    from shapely import wkt
+    from shapely.geometry import mapping
+
+    csv.field_size_limit(sys.maxsize)
+    features: list[dict] = []
+    population = 0
+    with csv_path.open(newline="", encoding="utf-8-sig") as handle:
+        for row in csv.DictReader(handle):
+            if row.get("cod_prov") != "14" or row.get("cod_dep") != "042":
+                continue
+            geom = wkt.loads(row["wkt"])
+            if geom.is_empty:
+                continue
+            if not geom.is_valid:
+                geom = geom.buffer(0)
+            people = int(row.get("POB_TOT_P") or 0)
+            population += people
+            features.append(
+                {
+                    "type": "Feature",
+                    "properties": {
+                        "codigo": row["codigo"],
+                        "poblacion": people,
+                        "nombre": f"Radio {row['fraccion']}-{row['radio']}",
+                    },
+                    "geometry": mapping(geom),
+                }
+            )
+    out_path.write_text(
+        json.dumps({"type": "FeatureCollection", "features": features}),
+        encoding="utf-8",
+    )
+    print(f"radios: {len(features)}; poblacion: {population}")
+    return len(features)
+
+
 def import_zones(
     conn,
     path: Path,
@@ -71,13 +115,19 @@ def import_zones(
             """
             INSERT INTO urban_zones (zone_id, neighborhood_name, geom, population, households, source)
             VALUES (
-                %s, %s, ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326), %s, %s, 'indec'
+                %s,
+                %s,
+                ST_Multi(ST_CollectionExtract(ST_MakeValid(ST_SetSRID(ST_GeomFromGeoJSON(%s), 4326)), 3)),
+                %s,
+                %s,
+                'indec'
             )
             ON CONFLICT (zone_id) DO UPDATE SET
                 neighborhood_name = EXCLUDED.neighborhood_name,
                 geom = EXCLUDED.geom,
                 population = EXCLUDED.population,
-                households = EXCLUDED.households
+                households = EXCLUDED.households,
+                source = 'indec'
             """,
             (zone_id, name, json.dumps(geom), population, households),
         )
@@ -86,10 +136,16 @@ def import_zones(
     conn.execute(
         """
         UPDATE businesses b
-        SET zone_id = z.zone_id
-        FROM urban_zones z
-        WHERE z.source = 'indec'
-          AND ST_Intersects(z.geom, b.geom)
+        SET zone_id = picked.zone_id
+        FROM (
+            SELECT DISTINCT ON (b2.id) b2.id AS business_id, z.zone_id
+            FROM businesses b2
+            JOIN urban_zones z
+              ON z.source = 'indec'
+             AND ST_Intersects(z.geom, b2.geom)
+            ORDER BY b2.id, ST_Area(z.geom::geography)
+        ) AS picked
+        WHERE b.id = picked.business_id
         """
     )
     conn.execute("SELECT recalculate_estimates()")

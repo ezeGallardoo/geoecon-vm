@@ -14,3 +14,4 @@ data/raw/
 *.prj
 .pytest_cache/
 apps/web/prisma/*.db
+.atl

@@ -13,22 +13,27 @@ export async function GET() {
           jsonb_agg(
             jsonb_build_object(
               'type', 'Feature',
-              'id', zone_id,
+              'id', neighborhood_id,
               'geometry', ST_AsGeoJSON(geom)::jsonb,
               'properties', jsonb_build_object(
-                'zoneId', zone_id,
-                'name', neighborhood_name,
+                'zoneId', neighborhood_id,
+                'name', name,
                 'population', population,
-                'households', households,
-                'density', population_density_ha,
-                'landValue', land_value_m2
+                'households', 0,
+                'landValue', land_value_m2,
+                'city', CASE WHEN source = 'idecor-vn' THEN 'Villa Nueva' ELSE 'Villa María' END,
+                'density', CASE
+                  WHEN ST_Area(geom::geography) > 0
+                  THEN ROUND((population / (ST_Area(geom::geography) / 10000.0))::numeric, 4)
+                  ELSE 0
+                END
               )
             )
           ),
           '[]'::jsonb
         )
       ) AS collection
-      FROM urban_zones
+      FROM neighborhoods
     `;
     return Response.json(rows[0]?.collection ?? { type: "FeatureCollection", features: [] });
   } catch (error) {

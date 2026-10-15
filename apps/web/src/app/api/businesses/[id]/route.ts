@@ -44,13 +44,23 @@ export async function GET(
         b.bcra_entities AS "bcraEntities",
         b.bcra_worst_status AS "bcraWorstStatus",
         b.bcra_total_debt_ars::float8 AS "bcraDebtArs",
-        z.land_value_m2::float8 AS "landValueM2",
-        z.population_density_ha::float8 AS "populationDensity",
-        z.neighborhood_name AS "zoneName",
+        n.land_value_m2::float8 AS "landValueM2",
+        CASE
+          WHEN n.geom IS NOT NULL AND ST_Area(n.geom::geography) > 0
+          THEN (n.population / (ST_Area(n.geom::geography) / 10000.0))::float8
+          ELSE NULL
+        END AS "populationDensity",
+        n.name AS "zoneName",
         b.source
       FROM businesses b
       LEFT JOIN category_params cp ON cp.category = b.category
-      LEFT JOIN urban_zones z ON z.zone_id = b.zone_id
+      LEFT JOIN LATERAL (
+        SELECT name, land_value_m2, population, geom
+        FROM neighborhoods
+        WHERE ST_Intersects(geom, b.geom)
+        ORDER BY ST_Area(geom::geography)
+        LIMIT 1
+      ) n ON true
       WHERE b.id = ${id}::uuid
     `;
     if (!rows[0]) {

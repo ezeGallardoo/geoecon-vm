@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || !Number.isFinite(meters)) {
     return Response.json({ error: "Parámetros inválidos." }, { status: 400 });
   }
-  if (lat < -32.5 || lat > -32.3 || lng < -63.35 || lng > -63.15) {
-    return Response.json({ error: "El punto queda fuera de Villa María." }, { status: 400 });
+  if (lat < -32.56 || lat > -32.32 || lng < -63.36 || lng > -63.14) {
+    return Response.json({ error: "El punto queda fuera de Villa María y Villa Nueva." }, { status: 400 });
   }
   if (meters < 100 || meters > 2000) {
     return Response.json({ error: "El radio va de 100 a 2000 metros." }, { status: 400 });

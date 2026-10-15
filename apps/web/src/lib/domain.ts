@@ -17,15 +17,35 @@ export interface CategoryStat {
   totalRevenueArs: number;
   avgRevenueArs: number;
   inhabitantsPerBusiness: number | null;
+  cityInhabitantsPerBusiness: number | null;
+  coverage: number | null;
+  gap: "hueco" | "pareja" | "saturado" | null;
+  potentialConsumptionArs: number | null;
+}
+
+export interface GapCell {
+  cellId: number;
+  lat: number;
+  lng: number;
+  population: number;
+  businessCount: number;
+  coverage: number | null;
+  gap: "hueco" | "pareja" | "saturado" | null;
+  opportunity: number | null;
+  landCoef: number;
+  potentialConsumptionArs: number;
 }
 
 export interface RadiusReport {
   populationIntersected: number;
   zonesIntersected: number;
+  landValueM2: number | null;
+  landCoef: number | null;
   businessCount: number;
   avgRevenueArs: number | null;
   totalRevenueArs: number | null;
   categories: CategoryStat[];
+  cityName: string;
 }
 
 export interface BusinessDetail {
@@ -110,6 +130,14 @@ export const CATEGORY_COLOR: Record<string, [number, number, number, number]> = 
   industria: [156, 166, 162, 230],
   galpon: [148, 156, 152, 230],
   institucion: [176, 188, 204, 230],
+  agro: [168, 184, 120, 230],
+  concesionaria: [140, 160, 190, 230],
+  electronica: [120, 170, 200, 230],
+  muebleria: [190, 160, 130, 230],
+  inmobiliaria: [180, 170, 140, 230],
+  perfumeria: [200, 150, 170, 230],
+  optica: [160, 190, 200, 230],
+  mascotas: [170, 150, 120, 230],
   otro: [214, 206, 188, 235],
 };
 
