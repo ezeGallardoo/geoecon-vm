@@ -44,21 +44,33 @@ INSERT INTO category_params (category, label, ticket_ars, visits_per_review, pur
     ('otro', 'Otro', 8000, 20, 0.2, 'Coeficiente genérico')
 ON CONFLICT (category) DO NOTHING;
 
+-- Topes de ingresos brutos del monotributo. Valores de aplicación desde el
+-- 01/08/2026, fuente oficial afip.gob.ar/monotributo/categorias.asp.
+--
+-- ES UN SNAPSHOT Y SE QUEDA VIEJO: ARCA los actualiza por resolución dos veces
+-- al año. Antes de confiar en el piso fiscal hay que revisarlos contra la
+-- resolución vigente y corregir esta tabla.
+--
+-- OJO: cargar esto no alcanza por sí solo. El piso fiscal se activa por el join
+-- `tax_brackets.code = businesses.tax_regime`, y tax_regime viene del padrón de
+-- CUIT (comando arca-csv). Con tax_regime en NULL la función ignora estos topes.
 INSERT INTO tax_brackets (code, regime_group, annual_cap_ars, notes) VALUES
-    ('MONOTRIBUTO_A', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_B', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_C', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_D', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_E', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_F', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_G', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_H', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_I', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_J', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
-    ('MONOTRIBUTO_K', 'monotributo', NULL, 'Cargar el tope anual vigente de ARCA'),
+    ('MONOTRIBUTO_A', 'monotributo', 12009410.45, 'Tope anual de ingresos brutos, categoría A. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_B', 'monotributo', 17595182.74, 'Categoría B. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_C', 'monotributo', 24670494.31, 'Categoría C. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_D', 'monotributo', 30628651.43, 'Categoría D. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_E', 'monotributo', 36028231.33, 'Categoría E. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_F', 'monotributo', 45151659.41, 'Categoría F. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_G', 'monotributo', 53995798.87, 'Categoría G. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_H', 'monotributo', 81924660.37, 'Categoría H. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_I', 'monotributo', 91699761.90, 'Categoría I. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_J', 'monotributo', 105012519.20, 'Categoría J. Vigente desde 01/08/2026'),
+    ('MONOTRIBUTO_K', 'monotributo', 126610838.75, 'Categoría K. Vigente desde 01/08/2026'),
     ('RESP_INSCRIPTO', 'responsable_inscripto', NULL, 'Sin tope. La señal sale del crédito en situación 1'),
-    ('SOCIEDAD', 'sociedad', NULL, 'S.R.L., S.A. o S.A.S.')
-ON CONFLICT (code) DO NOTHING;
+    ('SOCIEDAD', 'sociedad', NULL, 'S.R.L., S.A. o S.A.S. Sin tope')
+ON CONFLICT (code) DO UPDATE
+    SET annual_cap_ars = EXCLUDED.annual_cap_ars,
+        notes = EXCLUDED.notes;
 
 INSERT INTO activity_tiers (tier, min_monthly_ars, label) VALUES
     (1, 0, 'Micro'),
