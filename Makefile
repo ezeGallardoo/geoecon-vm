@@ -17,6 +17,9 @@ dev:
 selftest:
 	cd services/ingest && python3 -m geoecon selftest
 
-# Tests de la ingesta. Los que tocan la base necesitan `make db` arriba.
+# Tests de la ingesta. Corren en el contenedor porque es el único lugar donde
+# están psycopg y las deps del ETL, y además es el Python que se despliega.
+# Necesitás `make db` arriba para los que tocan la base.
 test:
-	cd services/ingest && python3 -m pytest -q
+	docker compose --profile tools run --rm --entrypoint sh ingest \
+		-c "pip install -q -r requirements-dev.txt && python -m pytest -q"
