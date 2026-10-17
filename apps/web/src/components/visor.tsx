@@ -477,6 +477,7 @@ export function Visor() {
             <input
               type="search"
               name="q"
+              role="combobox"
               autoComplete="off"
               spellCheck={false}
               placeholder="Nombre del comercio…"
