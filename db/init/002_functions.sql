@@ -553,6 +553,147 @@ BEGIN
 END;
 $$;
 
+-- Población capturada por cada comercio según el modelo de gravedad de Huff.
+--
+-- NO ES FACTURACIÓN. Es la población que el modelo le asigna a cada local según
+-- distancia y competencia, multiplicada por el ticket del rubro. Sirve para
+-- ordenar y comparar locales entre sí, no para declarar ingresos: no hay un
+-- dato de ventas con el cual validarlo.
+--
+-- Huff (1964): P(i compra en j) = (A_j / d_ij^a) / SUM_k (A_k / d_ik^a).
+-- Con A_j = 1 para todos porque no tenemos superficie del local. El cociente
+-- SUM_k w_ik reparte cada habitante entre todos los comercios que compiten por
+-- él: eso es lo que distingue a Huff de sumar la población de un radio entero.
+--
+-- d_min evita que un comercio situado en el centroide del radio capture el 100%
+-- de sus habitantes solo por estar a tres metros.
+CREATE OR REPLACE FUNCTION assign_business_catchment()
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_alpha NUMERIC;
+    v_max_m DOUBLE PRECISION;
+    v_min_m DOUBLE PRECISION;
+    updated INTEGER := 0;
+BEGIN
+    SELECT COALESCE((SELECT value FROM model_settings WHERE key = 'huff_alpha'), 2.0)
+        INTO v_alpha;
+    SELECT COALESCE((SELECT value FROM model_settings WHERE key = 'huff_max_distance_m'), 2000)
+        INTO v_max_m;
+    SELECT COALESCE((SELECT value FROM model_settings WHERE key = 'huff_min_distance_m'), 150)
+        INTO v_min_m;
+
+    -- Se limpian solo los que ya tenían valor: un local sin catchment tiene que
+    -- dar 0, no conservar el resultado de la corrida anterior.
+    UPDATE businesses
+    SET catchment_pop = NULL, captured_potential_ars = NULL
+    WHERE catchment_pop IS NOT NULL OR captured_potential_ars IS NOT NULL;
+
+    WITH zone_centers AS MATERIALIZED (
+        -- El centroide se calcula una sola vez. Además, medir desde el centroide
+        -- del radio es lo correcto para Huff: nadie va a Walkear hasta el borde
+        -- de su manzana para comprar el kiosco.
+        SELECT
+            zone_id,
+            population,
+            ST_Centroid(geom)::geography AS g
+        FROM urban_zones
+        WHERE source = 'indec' AND population > 0
+    ),
+    pairs AS (
+        SELECT
+            b.id AS business_id,
+            b.category,
+            zc.zone_id,
+            zc.population,
+            GREATEST(
+                ST_Distance(b.geom::geography, zc.g),
+                v_min_m
+            ) AS d
+        FROM businesses b
+        JOIN zone_centers zc
+          ON ST_DWithin(b.geom::geography, zc.g, v_max_m)
+    ),
+    weights AS (
+        SELECT
+            pairs.business_id,
+            pairs.category,
+            pairs.zone_id,
+            pairs.population,
+            1.0::NUMERIC / POWER(pairs.d, v_alpha::DOUBLE PRECISION)::NUMERIC AS w,
+            -- El reparto es DENTRO del rubro: un supermercado compite con otros
+            -- supermercados, no con el kiosco de la esquina. Con el reparto
+            -- global, cada local se pelea contra los 1246 y a todos les queda
+            -- una fracción minúscula de su catchment.
+            -- LIMITACIÓN: despensa, almacen y supermercado son sustitutos y acá
+            -- compiten solo consigo mismos. Eso subestima el solapamiento real.
+            SUM(1.0::NUMERIC / POWER(pairs.d, v_alpha::DOUBLE PRECISION)::NUMERIC)
+                OVER (PARTITION BY pairs.zone_id, pairs.category) AS w_total
+        FROM pairs
+    ),
+    catchment AS (
+        SELECT
+            weights.business_id,
+            -- NULL si el rubro no está en category_params: no lo sabemos.
+            cp.purchases_per_capita_month * cp.ticket_ars AS unit_potential,
+            SUM(weights.population::NUMERIC * weights.w / NULLIF(weights.w_total, 0))
+                AS population
+        FROM weights
+        JOIN businesses target ON target.id = weights.business_id
+        LEFT JOIN category_params cp ON cp.category = target.category
+        GROUP BY
+            weights.business_id,
+            cp.purchases_per_capita_month,
+            cp.ticket_ars
+    )
+    UPDATE businesses b
+    SET catchment_pop = ROUND(c.population)::BIGINT,
+        captured_potential_ars = CASE
+            WHEN c.unit_potential IS NULL THEN NULL
+            ELSE ROUND(c.unit_potential * c.population, 2)
+        END,
+        -- Mismos umbrales que activity_tiers. Si aparece una señal de reseñas y
+        -- recalculate_estimates calcula facturación real, el API prioriza esa.
+        capture_tier = CASE
+            WHEN c.unit_potential IS NULL THEN NULL
+            ELSE COALESCE((
+                SELECT t.tier
+                FROM activity_tiers t
+                WHERE c.unit_potential * c.population >= t.min_monthly_ars
+                ORDER BY t.min_monthly_ars DESC
+                LIMIT 1
+            ), 1)
+        END
+    FROM catchment c
+    WHERE b.id = c.business_id;
+
+    GET DIAGNOSTICS updated = ROW_COUNT;
+
+    -- Un local sin población alcanzable tiene catchment 0, no NULL: cero
+    -- clientes es un dato, "no calculado" es otra cosa.
+    -- El potencial en cambio queda NULL si el rubro no está en category_params:
+    -- decir 0 ahí afirmaría que no consume, cuando en realidad no lo sabemos.
+    UPDATE businesses b
+    SET catchment_pop = 0,
+        captured_potential_ars = CASE
+            WHEN EXISTS (
+                SELECT 1 FROM category_params cp WHERE cp.category = b.category
+            ) THEN 0
+            ELSE NULL
+        END,
+        capture_tier = CASE
+            WHEN EXISTS (
+                SELECT 1 FROM category_params cp WHERE cp.category = b.category
+            ) THEN 1
+            ELSE NULL
+        END
+    WHERE catchment_pop IS NULL;
+
+    RETURN updated;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION link_fiscal(payload JSONB)
 RETURNS UUID
 LANGUAGE plpgsql

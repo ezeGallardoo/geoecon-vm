@@ -10,6 +10,12 @@ export interface BusinessPoint {
   tier: number;
   /** Barrio o zona que contiene el punto. Lo resuelve PostGIS, no el cliente. */
   neighborhoodId: string | null;
+  /** Población que el modelo de Huff le asigna al local. No es un dato medido. */
+  catchmentPop: number | null;
+  /** Consumo potencial del catchment. NO es facturación. */
+  capturedPotentialArs: number | null;
+  /** true cuando el tier viene del modelo y no de reseñas reales. */
+  tierFromModel: boolean;
 }
 
 export interface CategoryStat {
@@ -75,6 +81,11 @@ export interface BusinessDetail {
   bcraEntities: string[] | null;
   bcraWorstStatus: number | null;
   bcraDebtArs: number | null;
+  catchmentPop: number | null;
+  capturedPotentialArs: number | null;
+  captureTier: number | null;
+  revenueTier: number | null;
+  tierFromModel: boolean;
   landValueM2: number | null;
   populationDensity: number | null;
   zoneName: string | null;

@@ -86,6 +86,13 @@ CREATE TABLE businesses (
     -- Barrio o zona que contiene el punto. La FK se agrega después de crear
     -- neighborhoods, que está más abajo en este archivo.
     neighborhood_id VARCHAR(64),
+    -- Modelo de gravedad de Huff. Población que el modelo le asigna al local y
+    -- el consumo potencial que de ahí sale. NO es facturación observada.
+    catchment_pop BIGINT,
+    captured_potential_ars NUMERIC(15,2),
+    -- Tier por tamaño según el potencial capturado. Es el que se usa mientras
+    -- no haya señal de reseñas para calcular facturación real.
+    capture_tier SMALLINT,
     source VARCHAR(32) NOT NULL DEFAULT 'unknown',
 
     rating NUMERIC(2,1),
@@ -111,6 +118,7 @@ CREATE TABLE businesses (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT businesses_tier_chk CHECK (activity_tier BETWEEN 1 AND 5),
+    CONSTRAINT businesses_capture_tier_chk CHECK (capture_tier IS NULL OR capture_tier BETWEEN 1 AND 5),
     CONSTRAINT businesses_rating_chk CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
     CONSTRAINT businesses_bcra_chk CHECK (bcra_worst_status IS NULL OR bcra_worst_status BETWEEN 1 AND 5),
     CONSTRAINT businesses_source_chk CHECK (source IN ('google_maps', 'osm', 'manual', 'unknown'))

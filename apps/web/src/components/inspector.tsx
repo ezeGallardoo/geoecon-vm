@@ -282,11 +282,30 @@ export function Inspector({
                 <dt>Tier</dt>
                 <dd>
                   {detail.tier} · {TIER_LABEL[detail.tier]}
+                  {detail.tierFromModel ? <small>según catchment</small> : null}
                 </dd>
               </div>
+              {detail.capturedPotentialArs != null ? (
+                <div>
+                  <dt>Consumo potencial</dt>
+                  <dd>
+                    {money(detail.capturedPotentialArs)}
+                    <small>
+                      por mes, del catchment de {Math.round(detail.catchmentPop ?? 0).toLocaleString("es-AR")} hab.
+                    </small>
+                  </dd>
+                </div>
+              ) : null}
               <div>
-                <dt>Estimado mensual</dt>
-                <dd>{money(detail.revenue)}</dd>
+                <dt>{detail.revenue != null ? "Estimado mensual" : "Facturación"}</dt>
+                <dd>
+                  {detail.revenue != null ? money(detail.revenue) : "sin dato de ventas"}
+                  <small>
+                    {detail.revenue != null
+                      ? "según reseñas, ticket y suelo"
+                      : "el padrón viene de OpenStreetMap, que no publica reseñas"}
+                  </small>
+                </dd>
               </div>
               <div>
                 <dt>Promedio del rubro</dt>
@@ -345,8 +364,9 @@ export function Inspector({
               </div>
             </dl>
             <p className="note">
-              El estimado combina reseñas, ticket del rubro, piso fiscal si hay tope cargado y el valor de
-              la cuadra. No es una declaración jurada.
+              El consumo potencial sale de un modelo de gravedad de Huff sobre la población
+              censal y el ticket del rubro: sirve para comparar locales entre sí, no para
+              declarar facturación. No hay dato de ventas con el cual validarlo.
             </p>
           </div>
         ) : (

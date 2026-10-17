@@ -29,7 +29,16 @@ export async function GET(
         b.rating::float8 AS rating,
         b.reviews_total AS "reviewsTotal",
         b.reviews_last_90d AS "reviewsLast90d",
-        b.activity_tier AS tier,
+        b.activity_tier AS revenueTier,
+        b.capture_tier AS "captureTier",
+        b.catchment_pop::float8 AS "catchmentPop",
+        b.captured_potential_ars::float8 AS "capturedPotentialArs",
+        COALESCE(
+          CASE WHEN b.estimated_monthly_revenue_ars IS NOT NULL THEN b.activity_tier END,
+          b.capture_tier,
+          1
+        ) AS tier,
+        (b.estimated_monthly_revenue_ars IS NULL AND b.capture_tier IS NOT NULL) AS "tierFromModel",
         b.estimated_monthly_revenue_ars::float8 AS revenue,
         (
           SELECT AVG(b2.estimated_monthly_revenue_ars)::float8

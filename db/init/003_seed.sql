@@ -85,7 +85,10 @@ INSERT INTO model_settings (key, value, description) VALUES
     ('monotributo_utilization', 0.55, 'Fracción del tope anual que se toma como piso mensual'),
     ('credit_giro_factor', 0.15, 'Deuda en pesos × factor, solo con situación BCRA 1'),
     ('zone_coef_min', 0.75, 'Piso del coeficiente IDECOR'),
-    ('zone_coef_max', 1.45, 'Techo del coeficiente IDECOR')
+    ('zone_coef_max', 1.45, 'Techo del coeficiente IDECOR'),
+    ('huff_alpha', 2.0, 'Exponente del decaimiento por distancia en el modelo de Huff'),
+    ('huff_max_distance_m', 2000, 'Radio máximo de catchment en metros'),
+    ('huff_min_distance_m', 150, 'Piso de distancia para que un local en el centroide del radio no capture el 100%')
 ON CONFLICT (key) DO NOTHING;
 
 SELECT generate_vm_grid();
