@@ -12,6 +12,8 @@ const MapCanvas = dynamic(() => import("@/components/map-canvas").then((mod) => 
 });
 import {
   colorCss,
+  OVERVIEW_ZOOM,
+  pointRadiusPx,
   TIER_LABEL,
   type BusinessDetail,
   type BusinessPoint,
@@ -696,7 +698,12 @@ export function Visor() {
               <li key={item.tier}>
                 <span
                   className="dot tier-dot"
-                  style={{ width: 4 + item.tier * 2.2, height: 4 + item.tier * 2.2 }}
+                  // Misma fórmula y mismo zoom que el mapa, así la leyenda no
+                  // puede volver a mostrar una escala distinta a la real.
+                  style={{
+                    width: 2 * pointRadiusPx(item.tier, OVERVIEW_ZOOM),
+                    height: 2 * pointRadiusPx(item.tier, OVERVIEW_ZOOM),
+                  }}
                 />
                 <span className="tier-name">{item.label ?? TIER_LABEL[item.tier]}</span>
                 <span className="tier-range">{tierRange(item, all[index + 1])}</span>

@@ -124,6 +124,26 @@ export const SOURCE_LABEL: Record<string, string> = {
   unknown: "Sin origen",
 };
 
+/** Zoom al que se abre el mapa. La leyenda muestra el tamaño a este zoom. */
+export const OVERVIEW_ZOOM = 13;
+
+/**
+ * Radio en píxeles de pantalla de un punto, por tier y zoom.
+ *
+ * Única fuente de la fórmula: la comparten el mapa y la leyenda. Antes cada una
+ * tenía su propia constante y terminaban mostrando escalas distintas, que es
+ * como la leyenda llegó a subestimar el punto del mapa a la mitad.
+ *
+ * El punto se achica al alejar y se agranda al acercar. Villa María concentra
+ * sus 1.246 comercios en pocas manzanas: con tamaño constante de pantalla, en
+ * vista general se pisan entre sí y la densidad — que es justo lo que el mapa
+ * tiene que mostrar — se convierte en una mancha.
+ */
+export function pointRadiusPx(tier: number, zoom: number): number {
+  const shrink = Math.min(1, Math.max(0.45, (zoom - 11) / 4));
+  return (3 + tier * 1.4) * shrink;
+}
+
 // Paleta para basemap oscuro. Las versiones anteriores usaban tonos tierra
 // apagados que, sobre un mapa casi negro (#101612), caían a menos del 3% de
 // contraste y los puntos se perdían. Acá la luminancia sube y el alfa queda

@@ -8,7 +8,7 @@ import { Map, NavigationControl, setWorkerUrl, type ExpressionSpecification, typ
 
 setWorkerUrl("/maplibre-gl-worker.js");
 import { useEffect, useRef, useState } from "react";
-import { CATEGORY_COLOR, circlePolygon, type BusinessPoint, type GapCell } from "@/lib/domain";
+import { CATEGORY_COLOR, OVERVIEW_ZOOM, circlePolygon, pointRadiusPx, type BusinessPoint, type GapCell } from "@/lib/domain";
 import { LAND_STOPS, POP_STOPS, formatLandUsd, landUsd } from "@/lib/land";
 
 type ZoneCollection = FeatureCollection;
@@ -73,6 +73,10 @@ export function MapCanvas({
   const mapRef = useRef<Map | null>(null);
   const overlayRef = useRef<MapboxOverlay | null>(null);
   const [ready, setReady] = useState(false);
+  // Zoom redondeado al entero: el tamaño del punto depende del zoom, pero solo
+  // hace falta recalcular cuando cambia de entero. Redondear evita reconstruir
+  // las capas en cada frame de un zoom con la rueda.
+  const [zoomStep, setZoomStep] = useState(OVERVIEW_ZOOM);
   const pickRef = useRef(onPick);
   const moveRef = useRef(onMove);
   const toggleRadiusRef = useRef(onToggleRadius);
@@ -290,6 +294,16 @@ export function MapCanvas({
     const overlay = overlayRef.current;
     if (!ready || !map || !overlay || !map.isStyleLoaded()) return;
 
+    // El tamaño del punto depende del zoom, así que hay que reconstruir la capa
+    // cuando este cambia. Se redondea al entero y setState baila si el valor no
+    // cambió, así que un zoom con la rueda no rehace las capas en cada frame.
+    const onZoom = () => {
+      const step = Math.round(map.getZoom());
+      setZoomStep((prev) => (prev === step ? prev : step));
+    };
+    map.on("zoom", onZoom);
+    onZoom();
+
     const zoneSource = map.getSource("zones") as GeoJSONSource | undefined;
     zoneSource?.setData(showZones ? labelZones(zones) : EMPTY);
     const zoneVisibility = showZones ? "visible" : "none";
@@ -358,13 +372,19 @@ export function MapCanvas({
           pickable: true,
           stroked: true,
           filled: true,
+          // El radio se calcula en píxeles a partir del zoom: el punto se achica al
+          // alejar y se agranda al acercar, en vez de tener siempre el mismo
+          // tamaño de pantalla. Eso es lo que evita que los 1.200 comercios del
+          // centro de Villa María se solapen en una mancha.
+          //
+          // Por qué no usar radiusMinPixels de deck.gl: el recorte sería global
+          // y al alejar los cinco tiers caerían todos al mismo mínimo,
+          // perdiéndose la lectura del tamaño justo en la vista general, que es
+          // donde más se usa. El factor va acá, no ahí.
           radiusUnits: "pixels",
           lineWidthUnits: "pixels",
           getPosition: (point) => [point.lng, point.lat],
-          // Rango medido sobre capturas, no estimado. Con radio plano de 5 a 6 px los
-          // puntos de tier bajo desaparecían sobre el basemap oscuro; a 17 px los
-          // de tier alto se solapan en el centro. Este rango separa sin tapar.
-          getRadius: (point) => 4.6 + point.tier * 2.3,
+          getRadius: (point) => pointRadiusPx(point.tier, zoomStep),
           getFillColor: (point) =>
             CATEGORY_COLOR[point.category] ?? CATEGORY_COLOR.otro,
           // Halo: sin un contorno claro el punto se pierde contra las calles
@@ -379,7 +399,10 @@ export function MapCanvas({
         }),
       ],
     });
-  }, [ready, points, zones, showPoints, showHeat, showZones, zoneMode, selectedId, center, radiusM, gaps, showRadius]);
+    return () => {
+      map.off("zoom", onZoom);
+    };
+  }, [ready, zoomStep, points, zones, showPoints, showHeat, showZones, zoneMode, selectedId, center, radiusM, gaps, showRadius]);
 
   useEffect(() => {
     const map = mapRef.current;
