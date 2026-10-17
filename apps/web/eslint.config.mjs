@@ -18,6 +18,8 @@ const eslintConfig = [
       "out/**",
       "build/**",
       "next-env.d.ts",
+      // Bundle minificado de MapLibre que copia el postinstall. No es codigo nuestro.
+      "public/**",
     ],
   },
 ];
