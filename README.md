@@ -187,12 +187,20 @@ de Prisma y copia el worker de MapLibre a `public/`. Sin eso el mapa no renderiz
 
 ## Advertencias
 
-- **Google Maps se scrapea con Playwright.** Viola los Términos de Servicio de Google,
-  puede terminar bloqueando IPs y los selectores `[role="feed"]` y `[role="article"]`
-  cambian sin aviso. OSM es la fuente estable; `maps` es un complemento best-effort
-  con reanudación por celda.
-- **El estimado no es una declaración jurada.** Es un orden de magnitud para decidir
-  a dónde mirar, no una valuación.
+- **Google Maps se scrapea con Playwright, y hoy NO FUNCIONA.** Medido el
+  17/10/2026: una búsqueda de "farmacia" con la URL anclada a Villa María
+  devuelve los 8 resultados de **Córdoba capital, a 140 km**. Ni la geolocalización
+  del contexto de Playwright ni el parámetro `!3m1!4b1` cambian nada: el
+  `@lat,lng` de `/maps/search/` mueve el mapa, no el centro de la búsqueda, y
+  Google decide la región por la IP de la sesión. El comando termina sin error y
+  escribe 0 fichas.
+  Arreglarlo exigiría atacar el RPC interno `/maps/preview/search`, que es igual
+  de frágil y mucho más|grayoso. **No corras `make maps` esperando datos.**
+- El filtro por distancia que tiene evita el peor resultado posible: que se
+  escriban farmacias de otra ciudad en el padrón de Villa María.
+- **El consumo potencial no es facturación.** Sale de un modelo de gravedad de
+  Huff sobre la población censal y el ticket del rubro. Sirve para ordenar y
+  comparar locales entre sí. No hay ningún dato de ventas con el cual validarlo.
 - **Villa Nueva no publica barrios.** Sus zonas son unidades del código urbanístico
   2026, no barrios con nombre.
 - `apps/web/src/lib/land.ts` tiene el dólar oficial **hardcodeado** (`USD_ARS`, con

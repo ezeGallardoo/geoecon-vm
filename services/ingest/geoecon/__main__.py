@@ -45,6 +45,13 @@ def main() -> None:
     maps = sub.add_parser("maps", help="Barrido de Google Maps por celdas pendientes")
     maps.add_argument("--category", required=True)
     maps.add_argument("--limit", type=int)
+    maps.add_argument(
+        "--radius",
+        type=float,
+        default=900.0,
+        help="Radio en metros alrededor del centro de la celda. Maps devuelve "
+        "resultados de todo el país si no los limitás a la celda.",
+    )
 
     sub.add_parser("selftest", help="Pruebas locales sin base")
 
@@ -137,7 +144,9 @@ def main() -> None:
         elif args.command == "maps":
             from geoecon.maps import scrape_category
 
-            print(f"fichas leídas: {scrape_category(conn, args.category, args.limit)}")
+            print(
+                f"fichas leídas: {scrape_category(conn, args.category, args.limit, args.radius)}"
+            )
 
 
 def _selftest() -> None:
