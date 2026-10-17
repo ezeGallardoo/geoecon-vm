@@ -80,6 +80,22 @@ img, svg, video {
   max-width: 100%;
 }
 
+small {
+  font-size: 80%;
+}
+
+::placeholder {
+  opacity: 1;
+  color: color-mix(in oklab, currentcolor 50%, transparent);
+}
+
+/* El buscador ya tiene su propio botón "Limpiar". Sin esto, Chrome y Safari
+   agregan encima la cruz nativa del input[type=search]. */
+::-webkit-search-decoration,
+::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+}
+
 .skip {
   position: absolute;
   left: 12px;

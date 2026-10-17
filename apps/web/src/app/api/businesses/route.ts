@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         SELECT neighborhood_id
         FROM neighborhoods
         WHERE ST_Intersects(geom, b.geom)
-        ORDER BY ST_Area(geom::geography)
+        ORDER BY ST_Area(geom)
         LIMIT 1
       ) n ON true
       WHERE ${category}::text IS NULL OR b.category = ${category}
