@@ -185,6 +185,29 @@ No son intercambiables.
 Usá `npm install`, no `npm ci --ignore-scripts`: el `postinstall` genera el cliente
 de Prisma y copia el worker de MapLibre a `public/`. Sin eso el mapa no renderiza.
 
+## El modelo de Huff
+
+El mapa no muestra tamaños medidos: no hay ningún dato de ventas. Lo que muestra
+es el **consumo potencial** que le asigna a cada local un modelo de gravedad de
+Huff, combinando distancia y competencia dentro del rubro con el ticket del
+`category_params`.
+
+```
+P(i compra en j) = (A_j / d_ij^alfa) / SUM_k (A_k / d_ik^alfa)
+```
+
+Con `A_j = 1` para todos, porque no tenemos superficie del local. Los parámetros
+—exponente de decaimiento, radio máximo y distancia mínima— están en
+`model_settings` y se ajustan con `assign_business_catchment()`.
+
+Sirve para **ordenar y comparar locales entre sí**. No sirve para declarar
+facturación, y la ficha del visor lo dice en pantalla. La limitation conocida:
+despensa, almacén y supermercado son sustitutos pero compiten solo consigo
+mismos, así que el solapamiento real está subestimado.
+
+Cuando aparezca una señal de reseñas o fiscal, `recalculate_estimates()` calcula
+la facturación real y el API prioriza ese tier sobre el del modelo.
+
 ## Advertencias
 
 - **Google Maps se scrapea con Playwright, y hoy NO FUNCIONA.** Medido el

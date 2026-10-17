@@ -99,8 +99,14 @@ export function MapCanvas({
       ],
     });
     map.addControl(new NavigationControl({ showCompass: false }), "top-left");
+    // interleaved: true renderiza dentro del canvas de MapLibre en vez de crear
+    // un canvas propio. Con interleaved: false, map.addControl(overlay) metía
+    // el deck-widget-container DENTRO de .maplibregl-ctrl-top-left — el
+    // contenedor del botón +/- — así que el canvas de los puntos quedaba
+    // encajonado en una caja de control y su visibilidad dependía del
+    // apilado. Interleaved evita por completo esa pelea de z-index.
     const overlay = new MapboxOverlay({
-      interleaved: false,
+      interleaved: true,
       layers: [],
     });
     map.addControl(overlay as unknown as IControl);
@@ -352,17 +358,26 @@ export function MapCanvas({
           data: points,
           visible: showPoints,
           pickable: true,
-          opacity: 0.95,
           stroked: true,
           filled: true,
           radiusUnits: "pixels",
           lineWidthUnits: "pixels",
           getPosition: (point) => [point.lng, point.lat],
-          getRadius: (point) => 3.5 + point.tier * 1.6,
-          getFillColor: (point) => CATEGORY_COLOR[point.category] ?? CATEGORY_COLOR.otro,
+          // Rango medido sobre capturas, no estimado. Con radio plano de 5 a 6 px los
+          // puntos de tier bajo desaparecían sobre el basemap oscuro; a 17 px los
+          // de tier alto se solapan en el centro. Este rango separa sin tapar.
+          getRadius: (point) => 4.6 + point.tier * 2.3,
+          getFillColor: (point) =>
+            CATEGORY_COLOR[point.category] ?? CATEGORY_COLOR.otro,
+          // Halo: sin un contorno claro el punto se pierde contra las calles
+          // del basemap, que también son líneas finas.
           getLineColor: (point) =>
-            point.id === selectedId ? [239, 230, 212, 255] : [12, 16, 13, 200],
-          getLineWidth: (point) => (point.id === selectedId ? 1.5 : 1),
+            point.id === selectedId
+              ? [255, 248, 232, 255]
+              : point.tier >= 4
+                ? [255, 240, 214, 150]
+                : [8, 12, 10, 210],
+          getLineWidth: (point) => (point.id === selectedId ? 2.4 : point.tier >= 4 ? 1.3 : 1),
         }),
       ],
     });

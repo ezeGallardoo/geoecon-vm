@@ -18,6 +18,7 @@ import {
   type GapCell,
   type Overview,
   type RadiusReport,
+  type TierScale,
 } from "@/lib/domain";
 import { LAND_STOPS, POP_STOPS, USD_ARS, formatLandUsd, landUsd } from "@/lib/land";
 
@@ -34,6 +35,25 @@ type ZoneProps = GeoJsonProperties & {
 type CityBounds = [[number, number], [number, number]];
 
 const CENTER = { lng: -63.2436, lat: -32.4103 };
+
+// Si /api/overview todavía no respondió, la leyenda no inventa una escala: los
+// cinco niveles quedan sin rango ni conteo hasta que lleguen los datos.
+const TIER_FALLBACK: TierScale[] = [1, 2, 3, 4, 5].map((tier) => ({
+  tier,
+  label: TIER_LABEL[tier],
+  min: 0,
+  total: 0,
+}));
+
+/** "hasta 1,5 M" o "desde 6 M". El techo de un tier es el piso del siguiente. */
+function tierRange(item: TierScale, next: TierScale | undefined): string {
+  if (item.total === 0) return "—";
+  const compact = (value: number) =>
+    value >= 1_000_000
+      ? `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)} M`
+      : `${Math.round(value / 1000)} k`;
+  return item.tier === 1 ? `hasta ${compact(next?.min ?? 0)}` : `desde ${compact(item.min)}`;
+}
 
 interface DeskState {
   category: string;
@@ -667,12 +687,20 @@ export function Visor() {
         ) : null}
         <details className="legend">
           <summary>Leyenda</summary>
-          <p className="hint">El tamaño del punto sigue el tier. El color es el rubro.</p>
+          <p className="legend-lead">
+            El color es el rubro. El tamaño, el <em>consumo potencial</em> que el modelo
+            de gravedad de Huff le asigna a cada local según su catchment.
+          </p>
           <ul className="tiers">
-            {[1, 2, 3, 4, 5].map((tier) => (
-              <li key={tier}>
-                <span className="dot tier-dot" style={{ width: 3 + tier * 2, height: 3 + tier * 2 }} />
-                {TIER_LABEL[tier]}
+            {(overview?.tiers ?? TIER_FALLBACK).map((item, index, all) => (
+              <li key={item.tier}>
+                <span
+                  className="dot tier-dot"
+                  style={{ width: 4 + item.tier * 2.2, height: 4 + item.tier * 2.2 }}
+                />
+                <span className="tier-name">{item.label ?? TIER_LABEL[item.tier]}</span>
+                <span className="tier-range">{tierRange(item, all[index + 1])}</span>
+                <b>{item.total.toLocaleString("es-AR")}</b>
               </li>
             ))}
           </ul>

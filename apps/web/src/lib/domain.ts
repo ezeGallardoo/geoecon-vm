@@ -92,6 +92,14 @@ export interface BusinessDetail {
   source: string;
 }
 
+export interface TierScale {
+  tier: number;
+  label: string;
+  /** Piso del rango, en pesos por mes. 0 para el tier más bajo. */
+  min: number;
+  total: number;
+}
+
 export interface Overview {
   businessCount: number;
   zoneCount: number;
@@ -99,6 +107,7 @@ export interface Overview {
   avgRevenueArs: number;
   labels: Record<string, string>;
   categories: { category: string; total: number; avgRevenueArs: number }[];
+  tiers: TierScale[];
 }
 
 export const TIER_LABEL: Record<number, string> = {
@@ -111,48 +120,51 @@ export const TIER_LABEL: Record<number, string> = {
 
 export const SOURCE_LABEL: Record<string, string> = {
   osm: "OpenStreetMap",
-  google_maps: "Google Maps",
   manual: "Carga manual",
   unknown: "Sin origen",
 };
 
+// Paleta para basemap oscuro. Las versiones anteriores usaban tonos tierra
+// apagados que, sobre un mapa casi negro (#101612), caían a menos del 3% de
+// contraste y los puntos se perdían. Acá la luminancia sube y el alfa queda
+// arriba: el color sigue distinguiendo el rubro, pero ahora se lee.
 export const CATEGORY_COLOR: Record<string, [number, number, number, number]> = {
-  kiosco: [210, 161, 90, 230],
-  despensa: [224, 122, 61, 230],
-  almacen: [196, 122, 74, 230],
-  supermercado: [232, 196, 122, 235],
-  farmacia: [126, 168, 154, 230],
-  ferreteria: [146, 176, 192, 230],
-  corralon: [150, 176, 194, 230],
-  panaderia: [214, 176, 122, 230],
-  carniceria: [176, 92, 78, 230],
-  verduleria: [122, 158, 96, 230],
-  restaurante: [196, 108, 78, 230],
-  cafeteria: [168, 132, 96, 230],
-  heladeria: [232, 214, 196, 230],
-  indumentaria: [168, 112, 138, 220],
-  calzado: [138, 108, 92, 220],
-  estacion_servicio: [168, 176, 168, 230],
-  gomeria: [164, 172, 178, 230],
-  taller_mecanico: [168, 176, 184, 230],
-  peluqueria: [186, 140, 154, 220],
-  gimnasio: [96, 128, 112, 220],
-  veterinaria: [112, 148, 132, 220],
-  libreria: [128, 116, 92, 220],
-  casa_de_repuestos: [160, 176, 186, 230],
-  distribuidora: [148, 176, 190, 230],
-  industria: [156, 166, 162, 230],
-  galpon: [148, 156, 152, 230],
-  institucion: [176, 188, 204, 230],
-  agro: [168, 184, 120, 230],
-  concesionaria: [140, 160, 190, 230],
-  electronica: [120, 170, 200, 230],
-  muebleria: [190, 160, 130, 230],
-  inmobiliaria: [180, 170, 140, 230],
-  perfumeria: [200, 150, 170, 230],
-  optica: [160, 190, 200, 230],
-  mascotas: [170, 150, 120, 230],
-  otro: [214, 206, 188, 235],
+  kiosco: [245, 205, 125, 245],
+  despensa: [255, 152, 82, 245],
+  almacen: [232, 168, 112, 245],
+  supermercado: [252, 224, 158, 250],
+  farmacia: [128, 214, 182, 245],
+  ferreteria: [140, 192, 228, 245],
+  corralon: [120, 200, 235, 245],
+  panaderia: [243, 205, 152, 245],
+  carniceria: [236, 104, 92, 245],
+  verduleria: [134, 205, 124, 245],
+  restaurante: [240, 134, 98, 245],
+  cafeteria: [216, 172, 126, 245],
+  heladeria: [246, 206, 214, 245],
+  indumentaria: [214, 148, 186, 240],
+  calzado: [190, 150, 122, 240],
+  estacion_servicio: [198, 208, 196, 245],
+  gomeria: [186, 196, 204, 245],
+  taller_mecanico: [178, 204, 226, 245],
+  peluqueria: [228, 162, 190, 240],
+  gimnasio: [122, 186, 152, 240],
+  veterinaria: [138, 202, 172, 240],
+  libreria: [196, 176, 132, 240],
+  casa_de_repuestos: [176, 198, 218, 245],
+  distribuidora: [156, 206, 222, 245],
+  industria: [186, 198, 192, 245],
+  galpon: [176, 188, 182, 245],
+  institucion: [196, 212, 232, 245],
+  agro: [206, 222, 138, 245],
+  concesionaria: [150, 186, 230, 245],
+  electronica: [128, 198, 235, 245],
+  muebleria: [232, 190, 148, 245],
+  inmobiliaria: [226, 208, 156, 245],
+  perfumeria: [238, 172, 202, 240],
+  optica: [172, 218, 232, 245],
+  mascotas: [212, 180, 142, 245],
+  otro: [200, 200, 190, 240],
 };
 
 export function colorCss(category: string): string {

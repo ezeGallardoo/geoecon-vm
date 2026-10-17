@@ -33,10 +33,32 @@ export async function GET() {
     const labels = await prisma.$queryRaw<Array<{ category: string; label: string }>>`
       SELECT category, label FROM category_params ORDER BY label
     `;
+    // El tier del mapa sale del potencial capturado de Huff. Se manda el conteo
+    // por tier y la escala para que la leyenda pueda decir cuántos hay en cada
+    // uno y qué rango cubre, en vez de solo el nombre.
+    const tiers = await prisma.$queryRaw<
+      Array<{ tier: number; label: string; min: number; total: number }>
+    >`
+      SELECT
+        t.tier,
+        t.label,
+        t.min_monthly_ars::float8 AS min,
+        COUNT(b.id)::int AS total
+      FROM activity_tiers t
+      LEFT JOIN businesses b
+        ON COALESCE(
+             CASE WHEN b.estimated_monthly_revenue_ars IS NOT NULL
+                  THEN b.activity_tier END,
+             b.capture_tier
+           ) = t.tier
+      GROUP BY t.tier, t.label, t.min_monthly_ars
+      ORDER BY t.min_monthly_ars
+    `;
     const overview: Overview = {
       ...totals,
       categories,
       labels: Object.fromEntries(labels.map((row) => [row.category, row.label])),
+      tiers,
     };
     return Response.json(overview);
   } catch (error) {

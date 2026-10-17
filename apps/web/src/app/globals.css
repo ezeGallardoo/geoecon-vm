@@ -318,7 +318,45 @@ a:focus-visible {
   gap: 6px;
 }
 
-.tiers { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+.legend-lead {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.legend-lead em {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-style: italic;
+  color: var(--paper);
+}
+
+.tiers {
+  grid-template-columns: 1fr;
+  gap: 7px;
+}
+
+.tier-name {
+  font-family: var(--font-newsreader), Georgia, serif;
+  font-size: 15px;
+  color: var(--paper);
+}
+
+.tier-range {
+  margin-left: auto;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tiers li b {
+  min-width: 3.2em;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--brass);
+  font-size: 12px;
+}
 
 .tiers li, .swatches li {
   display: flex;
