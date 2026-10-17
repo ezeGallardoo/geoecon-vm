@@ -346,8 +346,19 @@ BEGIN
         WHERE z.source = 'indec'
           AND ST_Intersects(z.geom::geography, bounds.buf)
     ),
+    -- VUT ponderado por área de intersección. Con AVG plano un barrio que el
+    -- círculo solo roza pesaba igual que uno cubierto entero. El FILTER va en
+    -- el denominador: si no, se divide por el área de barrios sin VUT y el
+    -- promedio se corre a la baja.
     land AS (
-        SELECT ROUND(AVG(n.land_value_m2) FILTER (WHERE n.land_value_m2 > 0))::NUMERIC AS land_value
+        SELECT ROUND((
+            SUM(n.land_value_m2 * ST_Area(ST_Intersection(n.geom::geography, bounds.buf)))
+            / NULLIF(
+                SUM(ST_Area(ST_Intersection(n.geom::geography, bounds.buf)))
+                    FILTER (WHERE n.land_value_m2 > 0),
+                0
+            )
+        )::NUMERIC, 2) AS land_value
         FROM neighborhoods n
         CROSS JOIN bounds
         WHERE ST_Intersects(n.geom::geography, bounds.buf)
