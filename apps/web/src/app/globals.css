@@ -1,4 +1,3 @@
-@import "tailwindcss";
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 :root {
@@ -11,15 +10,21 @@
   --ember: #e07a3d;
 }
 
-@theme inline {
-  --font-sans: var(--font-atkinson);
-  --font-serif: var(--font-newsreader);
+/* Reset propio. Antes venía del preflight de Tailwind; el proyecto no usa
+   ninguna utilidad de Tailwind, así que se replica acá lo que el diseño
+   realmente necesita. `font-weight: inherit` importa: .where h3 no fija
+   peso y depende de heredar el normal del body. */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  border: 0 solid;
 }
-
-* { box-sizing: border-box; }
 
 html {
   color-scheme: dark;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
 }
 
 html, body {
@@ -31,6 +36,48 @@ html, body {
 
 body {
   touch-action: manipulation;
+  line-height: inherit;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+p, figure, blockquote, dl, dd, pre {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+  text-decoration: inherit;
+}
+
+ol, ul, menu {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+button, input, select, textarea, optgroup {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  background: transparent;
+}
+
+button {
+  cursor: pointer;
+}
+
+table {
+  border-collapse: collapse;
+}
+
+img, svg, video {
+  display: block;
+  max-width: 100%;
 }
 
 .skip {
