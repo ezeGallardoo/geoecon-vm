@@ -363,16 +363,17 @@ BEGIN
         CROSS JOIN bounds
         WHERE ST_Intersects(n.geom::geography, bounds.buf)
     ),
+    -- `here` puede devolver NULL: el punto está fuera de todo barrio cargado.
+    -- Antes caía al sentinel 'departamento', que hacía que city_cats comparara
+    -- contra todos los comercios de la base, Villa María y Villa Nueva juntas.
+    -- "Fuera de la ciudad" no es lo mismo que "sin barrio".
     here AS (
-        SELECT COALESCE(
-            (
-                SELECT n.source
-                FROM neighborhoods n
-                WHERE ST_Covers(n.geom, ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326))
-                ORDER BY CASE n.source WHEN 'idecor-vn' THEN 0 ELSE 1 END
-                LIMIT 1
-            ),
-            'departamento'
+        SELECT (
+            SELECT n.source
+            FROM neighborhoods n
+            WHERE ST_Covers(n.geom, ST_SetSRID(ST_MakePoint(p_lng, p_lat), 4326))
+            ORDER BY CASE n.source WHEN 'idecor-vn' THEN 0 ELSE 1 END
+            LIMIT 1
         ) AS source
     ),
     city_land AS (
@@ -423,9 +424,10 @@ BEGIN
     SELECT jsonb_build_object(
         'populationIntersected', (SELECT population FROM pop),
         'zonesIntersected', (SELECT zones FROM pop),
-        'cityName', CASE (SELECT source FROM here)
-            WHEN 'idecor-vn' THEN 'Villa Nueva'
-            WHEN 'municipio' THEN 'Villa María'
+        'cityName', CASE
+            WHEN (SELECT source FROM here) IS NULL THEN NULL
+            WHEN (SELECT source FROM here) = 'idecor-vn' THEN 'Villa Nueva'
+            WHEN (SELECT source FROM here) = 'municipio' THEN 'Villa María'
             ELSE 'General San Martín'
         END,
         'landValueM2', (SELECT land_value FROM land),

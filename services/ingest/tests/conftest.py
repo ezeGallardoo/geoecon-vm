@@ -12,6 +12,7 @@ import os
 import psycopg
 import pytest
 from psycopg.rows import dict_row
+from psycopg.types.json import Json
 
 DEFAULT_URL = "postgresql://geoecon:geoecon@localhost:5435/geoecon"
 
@@ -112,18 +113,19 @@ def seed(conn):
         return neighborhood_id
 
     def _seed_business(place_id: str, name: str, category: str, lng: float, lat: float, **cols) -> str:
+        # Mismo camino que geoecon.db.upsert: un único parámetro jsonb.
+        payload = {
+            "place_id": place_id,
+            "name": name,
+            "category": category,
+            "lng": lng,
+            "lat": lat,
+            "source": "manual",
+            **cols,
+        }
         row = conn.execute(
-            """
-            SELECT upsert_business(jsonb_build_object(
-                'place_id', %(place_id)s,
-                'name', %(name)s,
-                'category', %(category)s,
-                'lng', %(lng)s,
-                'lat', %(lat)s,
-                'source', 'manual'
-            )) AS id
-            """,
-            {"place_id": place_id, "name": name, "category": category, "lng": lng, "lat": lat},
+            "SELECT upsert_business(%s::jsonb) AS id",
+            (Json(payload),),
         ).fetchone()
         return str(row["id"])
 

@@ -45,7 +45,8 @@ export interface RadiusReport {
   avgRevenueArs: number | null;
   totalRevenueArs: number | null;
   categories: CategoryStat[];
-  cityName: string;
+  /** null cuando el punto cae fuera de todo barrio cargado. */
+  cityName: string | null;
 }
 
 export interface BusinessDetail {

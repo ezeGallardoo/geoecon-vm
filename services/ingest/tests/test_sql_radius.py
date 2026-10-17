@@ -133,3 +133,49 @@ class TestLandValueWeighting:
 
         report = radius_report(CENTER_LAT, CENTER_LNG, 100)
         assert report["landValueM2"] is None
+
+
+class TestOutsideCityFallback:
+    """REGRESIÓN: un punto fuera de todo barrio no puede compararse contra la base entera.
+
+    Antes, `here` caía al sentinel 'departamento' y `city_cats` contaba todos los
+    comercios — Villa María y Villa Nueva — así que la cobertura salía mal sin aviso.
+    """
+
+    def test_city_name_is_null_outside_any_neighborhood(
+        self, conn, seed, square, radius_report
+    ):
+        seed_zone, seed_barrio, _ = seed
+        # Un barrio lejos del punto que consultamos.
+        seed_barrio("test:fuera:barrio", square(CENTER_LNG + 0.05, CENTER_LAT, 0.002), 100000)
+
+        report = radius_report(CENTER_LAT, CENTER_LNG, 300)
+        assert report["cityName"] is None, (
+            f"el punto no cae en ningún barrio; cityName debería ser null, "
+            f"pero salió {report['cityName']!r}"
+        )
+
+    def test_coverage_is_null_outside_any_neighborhood(
+        self, conn, seed, square, radius_report
+    ):
+        seed_zone, seed_barrio, seed_business = seed
+        seed_barrio("test:fuera:barrio", square(CENTER_LNG + 0.05, CENTER_LAT, 0.002), 100000)
+        seed_business("test:negocio:1", "Kiosco de prueba", "kiosco", CENTER_LNG, CENTER_LAT)
+
+        report = radius_report(CENTER_LAT, CENTER_LNG, 300)
+        for category in report["categories"]:
+            if category["total"] > 0:
+                assert category["coverage"] is None, (
+                    "sin ciudad conocida no se puede calcular cobertura: "
+                    f"{category['category']} dio {category['coverage']}"
+                )
+                assert category["gap"] is None
+
+    def test_city_name_is_present_inside_a_neighborhood(
+        self, conn, seed, square, radius_report
+    ):
+        seed_zone, seed_barrio, _ = seed
+        seed_barrio("test:dentro:barrio", square(CENTER_LNG, CENTER_LAT, 0.002), 100000)
+
+        report = radius_report(CENTER_LAT, CENTER_LNG, 300)
+        assert report["cityName"] == "Villa María"
