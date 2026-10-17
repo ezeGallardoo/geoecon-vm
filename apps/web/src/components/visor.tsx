@@ -340,7 +340,9 @@ export function Visor() {
   }
 
   function openPoint(point: BusinessPoint) {
-    const found = zones.features.find((feature) => geometryContains(feature.geometry, point.lng, point.lat));
+    const found = zones.features.find(
+      (feature) => String(feature.properties?.zoneId ?? "") === point.neighborhoodId,
+    );
     if (found) setPlace(zonePlace(found.properties));
     setSelectedId(point.id);
     setCenter({ lat: point.lat, lng: point.lng });
@@ -392,18 +394,27 @@ export function Visor() {
     () => ({ type: "FeatureCollection" as const, features: cityFeatures }),
     [cityFeatures],
   );
+  // PostGIS ya resolvió en /api/businesses a qué barrio pertenece cada punto,
+  // así que acá alcanza con una consulta al Set en vez de ray casting por punto.
+  const cityZoneIds = useMemo(
+    () => new Set(cityFeatures.map((feature) => String(feature.properties?.zoneId ?? ""))),
+    [cityFeatures],
+  );
   const insideCity = useMemo(() => {
     const ids = new Set<string>();
     if (cityFeatures.length === 0) return ids;
     for (const point of points) {
-      if (inFeatures(cityFeatures, point.lng, point.lat)) ids.add(point.id);
+      if (point.neighborhoodId && cityZoneIds.has(point.neighborhoodId)) ids.add(point.id);
     }
     return ids;
-  }, [points, cityFeatures]);
+  }, [points, cityFeatures.length, cityZoneIds]);
   const censusPopulation = useMemo(
     () => cityFeatures.reduce((sum, feature) => sum + Number(feature.properties?.population ?? 0), 0),
     [cityFeatures],
   );
+  // Las gap cells son celdas de la grilla de 400 m, no puntos con barrio: no
+  // traen zoneId, así que acá sigue el point-in-polygon. Son 15 celdas contra
+  // los barrios de la ciudad, un costo trivial al lado del de los negocios.
   const cityGaps = useMemo(() => {
     if (cityFeatures.length === 0) return gaps;
     return {

@@ -8,6 +8,8 @@ export interface BusinessPoint {
   reviewsTotal: number;
   revenue: number | null;
   tier: number;
+  /** Barrio o zona que contiene el punto. Lo resuelve PostGIS, no el cliente. */
+  neighborhoodId: string | null;
 }
 
 export interface CategoryStat {
