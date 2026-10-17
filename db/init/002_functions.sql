@@ -331,8 +331,15 @@ BEGIN
         CROSS JOIN bounds
         WHERE ST_DWithin(b.geom::geography, bounds.geog, v_radius)
     ),
+    -- Población prorrateada por área de intersección. ST_Intersects es
+    -- booleano: sin el prorrateo, un círculo que solo roza un radio censal
+    -- reportaba su población entera. Mismo criterio que cell_gaps más abajo.
     pop AS (
-        SELECT COALESCE(SUM(z.population), 0)::INTEGER AS population,
+        SELECT COALESCE(ROUND(SUM(
+            z.population::NUMERIC
+            * ST_Area(ST_Intersection(z.geom::geography, bounds.buf))
+            / NULLIF(ST_Area(z.geom::geography), 0)
+        )), 0)::INTEGER AS population,
                COUNT(z.zone_id)::INTEGER AS zones
         FROM urban_zones z
         CROSS JOIN bounds

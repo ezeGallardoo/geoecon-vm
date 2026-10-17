@@ -43,6 +43,20 @@ def _multipolygon(geojson_geom: dict) -> str:
     raise ValueError(f"geometría no poligonal: {kind}")
 
 
+@pytest.fixture(autouse=True)
+def isolated(conn):
+    """Vacía las tablas geoespaciales para que los tests midan lo que siembran.
+
+    Los datos reales del proyecto están cargados en esta base, así que sin esto
+    `radius_report` devolvería la población real de Villa María y los asserts
+    no significarían nada. El rollback del fixture `conn` los restaura después.
+    """
+    conn.execute("DELETE FROM businesses")
+    conn.execute("DELETE FROM urban_zones")
+    conn.execute("DELETE FROM neighborhoods")
+    yield
+
+
 @pytest.fixture
 def seed(conn):
     """Inserta zonas y barrios de prueba. Devuelve funciones para sembrar y leer."""
