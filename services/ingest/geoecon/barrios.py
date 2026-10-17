@@ -14,11 +14,12 @@ from pyproj import CRS, Transformer
 from shapely.geometry import mapping, shape
 from shapely.ops import transform, unary_union
 
+from geoecon.naming import display_name, zone_name
+
 VILLA_NUEVA_LAYER = "idecor:villa_nva_cod_urb_rur"
 VILLA_NUEVA_SOURCE = "idecor-vn"
 
 BARRIOS_URL = "https://datos.villamaria.gob.ar/recurso/645d9b9c-7035-499b-91bf-a8627aab2609/descargar"
-SMALL_WORDS = {"de", "del", "en", "la", "las", "los", "y"}
 
 
 def import_barrios(conn, path: Path | None = None) -> int:
@@ -30,7 +31,7 @@ def import_barrios(conn, path: Path | None = None) -> int:
     features = _features(path)
     conn.execute("DELETE FROM neighborhoods WHERE source = 'municipio'")
     for feature in features:
-        name = _display_name(str(feature["properties"].get("NOMBRE") or "").strip())
+        name = display_name(str(feature["properties"].get("NOMBRE") or "").strip())
         if not name:
             continue
         conn.execute(
@@ -111,23 +112,6 @@ def _load_shp(path: Path) -> list[dict]:
     return features
 
 
-def _repair_text(raw: str) -> str:
-    try:
-        return raw.encode("cp1252").decode("utf-8")
-    except (UnicodeEncodeError, UnicodeDecodeError):
-        return raw
-
-
-def _display_name(raw: str) -> str:
-    raw = _repair_text(raw).replace("BELGARANO", "BELGRANO")
-    words = raw.split()
-    out = []
-    for index, word in enumerate(words):
-        lower = word.lower()
-        out.append(lower if index > 0 and lower in SMALL_WORDS else lower.capitalize())
-    return " ".join(out)
-
-
 def import_villa_nueva(conn, wfs_url: str) -> int:
     """Carga las zonas del código urbanístico 2026 de Villa Nueva.
 
@@ -201,23 +185,6 @@ def import_villa_nueva(conn, wfs_url: str) -> int:
         (VILLA_NUEVA_SOURCE,),
     ).fetchone()
     return int(row["n"] if row else 0)
-
-
-def zone_name(raw: str) -> str:
-    """Nombre legible de una zona WFS. Repara la ñ doble-codificada y conserva RN o N158."""
-    try:
-        repaired = raw.encode("latin-1").decode("utf-8")
-    except (UnicodeEncodeError, UnicodeDecodeError):
-        repaired = raw
-    words = repaired.split()
-    out = []
-    for index, word in enumerate(words):
-        if any(char.isdigit() for char in word) or (word.isupper() and len(word) <= 3):
-            out.append(word)
-            continue
-        lower = word.lower()
-        out.append(lower if index > 0 and lower in SMALL_WORDS else lower.capitalize())
-    return " ".join(out)
 
 
 def _villa_nueva_features(wfs_url: str) -> list[dict]:

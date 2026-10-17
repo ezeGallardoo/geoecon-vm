@@ -141,7 +141,10 @@ def main() -> None:
 
 
 def _selftest() -> None:
-    from geoecon.barrios import zone_name
+    # Solo módulos sin dependencias de red ni geo: importar geoecon.barrios
+    # arrastraba httpx, shapefile, pyproj y shapely, y hacía que este comando
+    # fallara en un host donde nunca se instalaron.
+    from geoecon.naming import zone_name
 
     assert zone_name("Rural Intensiva de PequeÃ±a Escala") == "Rural Intensiva de Pequeña Escala"
     assert zone_name("Circunvalacion y RN N158") == "Circunvalacion y RN N158"

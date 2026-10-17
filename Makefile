@@ -1,4 +1,4 @@
-.PHONY: db osm estimate dev selftest
+.PHONY: db osm estimate dev selftest test
 
 db:
 	colima start
@@ -16,3 +16,7 @@ dev:
 
 selftest:
 	cd services/ingest && python3 -m geoecon selftest
+
+# Tests de la ingesta. Los que tocan la base necesitan `make db` arriba.
+test:
+	cd services/ingest && python3 -m pytest -q
