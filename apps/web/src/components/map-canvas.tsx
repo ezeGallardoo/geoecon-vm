@@ -99,14 +99,12 @@ export function MapCanvas({
       ],
     });
     map.addControl(new NavigationControl({ showCompass: false }), "top-left");
-    // interleaved: true renderiza dentro del canvas de MapLibre en vez de crear
-    // un canvas propio. Con interleaved: false, map.addControl(overlay) metía
-    // el deck-widget-container DENTRO de .maplibregl-ctrl-top-left — el
-    // contenedor del botón +/- — así que el canvas de los puntos quedaba
-    // encajonado en una caja de control y su visibilidad dependía del
-    // apilado. Interleaved evita por completo esa pelea de z-index.
+    // interleaved: false es obligatorio con MapLibre 6: el modo interleaved de
+    // deck.gl 9.4 lee `map.transform.height` y el transform interno cambió en
+    // MapLibre 5+. Con interleaved:true la app revienta con
+    // "undefined is not an object (evaluating 'map.transform.height')".
     const overlay = new MapboxOverlay({
-      interleaved: true,
+      interleaved: false,
       layers: [],
     });
     map.addControl(overlay as unknown as IControl);
