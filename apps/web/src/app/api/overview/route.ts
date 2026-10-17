@@ -16,7 +16,7 @@ export async function GET() {
       SELECT
         (SELECT COUNT(*)::int FROM businesses) AS "businessCount",
         (SELECT COUNT(*)::int FROM urban_zones) AS "zoneCount",
-        (SELECT COUNT(*)::int FROM scrape_grid) AS "cellCount",
+        (SELECT COUNT(*)::int FROM analysis_cells) AS "cellCount",
         COALESCE((SELECT AVG(estimated_monthly_revenue_ars)::float8 FROM businesses), 0) AS "avgRevenueArs"
     `;
     const categories = await prisma.$queryRaw<

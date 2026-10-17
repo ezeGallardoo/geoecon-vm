@@ -3,7 +3,3 @@ httpx>=0.27
 shapely>=2.0
 pyshp>=2.3
 pyproj>=3.6
-# Solo lo usa el comando `maps`. El scraping de Google es de riesgo alto:
-# viola los Términos de Servicio, puede bloquear la IP y los selectores
-# `[role="feed"]` / `[role="article"]` cambian sin aviso. Ver el README.
-playwright>=1.49

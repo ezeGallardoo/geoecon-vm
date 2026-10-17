@@ -19,18 +19,16 @@ DECLARE
     lng DOUBLE PRECISION;
     inserted INTEGER := 0;
 BEGIN
-    IF EXISTS (SELECT 1 FROM businesses) THEN
-        RAISE EXCEPTION 'generate_vm_grid rechazado: ya hay comercios. Truncá businesses antes de regenerar la grilla.';
-    END IF;
-
-    DELETE FROM scrape_jobs;
-    DELETE FROM scrape_grid;
+    -- Regenerar la grilla es idempotente: solo borra y vuelve a crear
+    -- analysis_cells, no toca businesses. Antes pedía truncar el padrón porque
+    -- la grilla llevaba el estado del barrido; ese vínculo ya no existe.
+    DELETE FROM analysis_cells;
 
     lat := south;
     WHILE lat < north - 1e-12 LOOP
         lng := west;
         WHILE lng < east - 1e-12 LOOP
-            INSERT INTO scrape_grid (bbox, center_lat, center_lng, status)
+            INSERT INTO analysis_cells (bbox, center_lat, center_lng)
             VALUES (
                 ST_MakeEnvelope(
                     lng,
@@ -40,8 +38,7 @@ BEGIN
                     4326
                 ),
                 lat + LEAST(lat_step, north - lat) / 2.0,
-                lng + LEAST(lng_step, east - lng) / 2.0,
-                'PENDING'
+                lng + LEAST(lng_step, east - lng) / 2.0
             );
             inserted := inserted + 1;
             lng := lng + lng_step;
@@ -49,23 +46,6 @@ BEGIN
         lat := lat + lat_step;
     END LOOP;
 
-    RETURN inserted;
-END;
-$$;
-
-CREATE OR REPLACE FUNCTION ensure_scrape_jobs(p_source TEXT, p_query TEXT)
-RETURNS INTEGER
-LANGUAGE plpgsql
-AS $$
-DECLARE
-    inserted INTEGER;
-BEGIN
-    INSERT INTO scrape_jobs (cell_id, source, query, status)
-    SELECT cell_id, p_source, p_query, 'PENDING'
-    FROM scrape_grid
-    ON CONFLICT (cell_id, source, query) DO NOTHING;
-
-    GET DIAGNOSTICS inserted = ROW_COUNT;
     RETURN inserted;
 END;
 $$;
@@ -337,8 +317,8 @@ BEGIN
     pop AS (
         SELECT COALESCE(ROUND(SUM(
             z.population::NUMERIC
-            * ST_Area(ST_Intersection(z.geom::geography, bounds.buf))
-            / NULLIF(ST_Area(z.geom::geography), 0)
+            * ST_Area(ST_Intersection(z.geom, bounds.buf::geometry))
+            / NULLIF(ST_Area(z.geom), 0)
         )), 0)::INTEGER AS population,
                COUNT(z.zone_id)::INTEGER AS zones
         FROM urban_zones z
@@ -352,9 +332,9 @@ BEGIN
     -- promedio se corre a la baja.
     land AS (
         SELECT ROUND((
-            SUM(n.land_value_m2 * ST_Area(ST_Intersection(n.geom::geography, bounds.buf)))
+            SUM(n.land_value_m2 * ST_Area(ST_Intersection(n.geom, bounds.buf::geometry)))
             / NULLIF(
-                SUM(ST_Area(ST_Intersection(n.geom::geography, bounds.buf)))
+                SUM(ST_Area(ST_Intersection(n.geom, bounds.buf::geometry)))
                     FILTER (WHERE n.land_value_m2 > 0),
                 0
             )
@@ -772,11 +752,11 @@ AS $$
             g.bbox,
             COALESCE(SUM(
                 z.population::NUMERIC
-                * ST_Area(ST_Intersection(g.bbox, z.geom)::geography)
-                / NULLIF(ST_Area(z.geom::geography), 0)
+                * ST_Area(ST_Intersection(g.bbox, z.geom))
+                / NULLIF(ST_Area(z.geom), 0)
             ), 0) AS population,
             AVG(z.land_value_m2) FILTER (WHERE z.land_value_m2 > 0) AS land_value
-        FROM scrape_grid g
+        FROM analysis_cells g
         LEFT JOIN urban_zones z
             ON z.source = 'indec' AND ST_Intersects(g.bbox, z.geom)
         GROUP BY g.cell_id, g.center_lat, g.center_lng, g.bbox

@@ -42,17 +42,6 @@ def main() -> None:
     fiscal = sub.add_parser("arca-csv", help="Vincula un CSV local de CUIT. No consulta ARCA en línea")
     fiscal.add_argument("--path", required=True, type=Path)
 
-    maps = sub.add_parser("maps", help="Barrido de Google Maps por celdas pendientes")
-    maps.add_argument("--category", required=True)
-    maps.add_argument("--limit", type=int)
-    maps.add_argument(
-        "--radius",
-        type=float,
-        default=900.0,
-        help="Radio en metros alrededor del centro de la celda. Maps devuelve "
-        "resultados de todo el país si no los limitás a la celda.",
-    )
-
     sub.add_parser("selftest", help="Pruebas locales sin base")
 
     args = parser.parse_args()
@@ -141,15 +130,7 @@ def main() -> None:
 
             linked, skipped = link_csv(conn, args.path)
             print(f"vinculados: {linked}; omitidos: {skipped}")
-        elif args.command == "maps":
-            from geoecon.maps import scrape_category
-
-            print(
-                f"fichas leídas: {scrape_category(conn, args.category, args.limit, args.radius)}"
-            )
-
-
-def _selftest() -> None:
+        def _selftest() -> None:
     # Solo módulos sin dependencias de red ni geo: importar geoecon.barrios
     # arrastraba httpx, shapefile, pyproj y shapely, y hacía que este comando
     # fallara en un host donde nunca se instalaron.

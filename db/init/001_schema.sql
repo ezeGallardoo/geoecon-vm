@@ -7,28 +7,14 @@
 CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
-CREATE TABLE scrape_grid (
+-- Grilla de análisis de 400 m sobre el ejido. La usa cell_gaps() para rankear
+-- celdas por oportunidad. Antes se llamaba scrape_grid y llevaba estado de
+-- barrido; se limpió al quitar el scraping de Google Maps, que no funcionaba.
+CREATE TABLE analysis_cells (
     cell_id SERIAL PRIMARY KEY,
     bbox GEOMETRY(Polygon, 4326) NOT NULL,
     center_lat DOUBLE PRECISION NOT NULL,
-    center_lng DOUBLE PRECISION NOT NULL,
-    last_scanned_at TIMESTAMPTZ,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    CONSTRAINT scrape_grid_status_chk CHECK (status IN ('PENDING', 'COMPLETED', 'ERROR'))
-);
-
--- Reanudación por rubro (RNF-02). scrape_grid.status resume el barrido en curso;
--- scrape_jobs recuerda cada consulta para no pisar un rubro ya cerrado.
-CREATE TABLE scrape_jobs (
-    job_id SERIAL PRIMARY KEY,
-    cell_id INTEGER NOT NULL REFERENCES scrape_grid(cell_id) ON DELETE CASCADE,
-    source VARCHAR(32) NOT NULL,
-    query VARCHAR(120) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-    last_error TEXT,
-    scanned_at TIMESTAMPTZ,
-    CONSTRAINT scrape_jobs_status_chk CHECK (status IN ('PENDING', 'COMPLETED', 'ERROR')),
-    CONSTRAINT scrape_jobs_unique UNIQUE (cell_id, source, query)
+    center_lng DOUBLE PRECISION NOT NULL
 );
 
 CREATE TABLE urban_zones (
@@ -121,12 +107,10 @@ CREATE TABLE businesses (
     CONSTRAINT businesses_capture_tier_chk CHECK (capture_tier IS NULL OR capture_tier BETWEEN 1 AND 5),
     CONSTRAINT businesses_rating_chk CHECK (rating IS NULL OR (rating >= 1 AND rating <= 5)),
     CONSTRAINT businesses_bcra_chk CHECK (bcra_worst_status IS NULL OR bcra_worst_status BETWEEN 1 AND 5),
-    CONSTRAINT businesses_source_chk CHECK (source IN ('google_maps', 'osm', 'manual', 'unknown'))
+    CONSTRAINT businesses_source_chk CHECK (source IN ('osm', 'manual', 'unknown'))
 );
 
-CREATE INDEX idx_scrape_grid_bbox ON scrape_grid USING GIST (bbox);
-CREATE INDEX idx_scrape_grid_status ON scrape_grid (status);
-CREATE INDEX idx_scrape_jobs_pending ON scrape_jobs (source, query, status, cell_id);
+CREATE INDEX idx_analysis_cells_bbox ON analysis_cells USING GIST (bbox);
 CREATE TABLE neighborhoods (
     neighborhood_id VARCHAR(64) PRIMARY KEY,
     name VARCHAR(120) NOT NULL,
