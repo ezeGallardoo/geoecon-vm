@@ -18,6 +18,7 @@ model Business {
   website                    String?
   geom                       Unsupported("geometry(Point,4326)")
   zoneId                     String?   @map("zone_id") @db.VarChar(64)
+  neighborhoodId             String?   @map("neighborhood_id") @db.VarChar(64)
   source                     String    @db.VarChar(32)
   rating                     Decimal?  @db.Decimal(2, 1)
   reviewsTotal               Int       @default(0) @map("reviews_total")
@@ -33,10 +34,12 @@ model Business {
   estimatedMonthlyRevenueArs Decimal?  @map("estimated_monthly_revenue_ars") @db.Decimal(15, 2)
   updatedAt                  DateTime  @default(now()) @map("updated_at") @db.Timestamptz(6)
 
-  zone UrbanZone? @relation(fields: [zoneId], references: [zoneId])
+  zone         UrbanZone?     @relation(fields: [zoneId], references: [zoneId])
+  neighborhood Neighborhood?  @relation(fields: [neighborhoodId], references: [neighborhoodId])
 
   @@index([category])
   @@index([cuit])
+  @@index([neighborhoodId])
   @@map("businesses")
 }
 
@@ -50,6 +53,18 @@ model UrbanZone {
   businesses       Business[]
 
   @@map("urban_zones")
+}
+
+model Neighborhood {
+  neighborhoodId String   @id @map("neighborhood_id") @db.VarChar(64)
+  name           String   @db.VarChar(120)
+  geom           Unsupported("geometry(MultiPolygon,4326)")
+  population     Int      @default(0)
+  landValueM2    Decimal? @map("land_value_m2") @db.Decimal(12, 2)
+  source         String   @default("municipio") @db.VarChar(40)
+  businesses     Business[]
+
+  @@map("neighborhoods")
 }
 
 model CategoryParam {

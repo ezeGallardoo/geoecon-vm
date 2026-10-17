@@ -54,13 +54,7 @@ export async function GET(
         b.source
       FROM businesses b
       LEFT JOIN category_params cp ON cp.category = b.category
-      LEFT JOIN LATERAL (
-        SELECT name, land_value_m2, population, geom
-        FROM neighborhoods
-        WHERE ST_Intersects(geom, b.geom)
-        ORDER BY ST_Area(geom)
-        LIMIT 1
-      ) n ON true
+      LEFT JOIN neighborhoods n ON n.neighborhood_id = b.neighborhood_id
       WHERE b.id = ${id}::uuid
     `;
     if (!rows[0]) {

@@ -83,6 +83,9 @@ CREATE TABLE businesses (
     website TEXT,
     geom GEOMETRY(Point, 4326) NOT NULL,
     zone_id VARCHAR(64) REFERENCES urban_zones(zone_id),
+    -- Barrio o zona que contiene el punto. La FK se agrega después de crear
+    -- neighborhoods, que está más abajo en este archivo.
+    neighborhood_id VARCHAR(64),
     source VARCHAR(32) NOT NULL DEFAULT 'unknown',
 
     rating NUMERIC(2,1),
@@ -126,6 +129,12 @@ CREATE TABLE neighborhoods (
 );
 
 CREATE INDEX idx_neighborhoods_geom ON neighborhoods USING GIST (geom);
+CREATE INDEX idx_businesses_neighborhood ON businesses (neighborhood_id);
+
+ALTER TABLE businesses
+    ADD CONSTRAINT businesses_neighborhood_fk
+    FOREIGN KEY (neighborhood_id) REFERENCES neighborhoods(neighborhood_id)
+    ON DELETE SET NULL;
 CREATE INDEX idx_urban_zones_geom ON urban_zones USING GIST (geom);
 CREATE INDEX idx_urban_zones_geog ON urban_zones USING GIST ((geom::geography));
 CREATE INDEX idx_businesses_geom ON businesses USING GIST (geom);

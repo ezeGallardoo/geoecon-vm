@@ -510,6 +510,49 @@ BEGIN
 END;
 $$;
 
+-- Barrio que contiene cada comercio, materializado. El visor lo lee como
+-- columna en vez de resolverlo por punto en el navegador. Gana el polígono de
+-- menor área que contiene al punto, igual que la ficha individual.
+-- El área es planar a propósito: ST_Area(geography) reproyecta a esferoide y
+-- cuesta ~750 ms sobre el padrón entero, para un criterio que dentro de una
+-- ciudad da el mismo resultado.
+CREATE OR REPLACE FUNCTION assign_business_neighborhoods()
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    assigned INTEGER;
+BEGIN
+    UPDATE businesses b
+    SET neighborhood_id = picked.neighborhood_id
+    FROM (
+        SELECT DISTINCT ON (b2.id)
+            b2.id AS business_id,
+            n.neighborhood_id AS neighborhood_id
+        FROM businesses b2
+        JOIN neighborhoods n
+          ON ST_Intersects(n.geom, b2.geom)
+        ORDER BY b2.id, ST_Area(n.geom)
+    ) AS picked
+    WHERE b.id = picked.business_id;
+    GET DIAGNOSTICS assigned = ROW_COUNT;
+
+    -- Un comercio puede haber salido del polígono que lo contenía, por ejemplo
+    -- si se recargaron los barrios. Sin esto quedaría apuntando al barrio viejo.
+    UPDATE businesses b
+    SET neighborhood_id = NULL
+    WHERE b.neighborhood_id IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM neighborhoods n
+          WHERE n.neighborhood_id = b.neighborhood_id
+            AND ST_Intersects(n.geom, b.geom)
+      );
+
+    RETURN assigned;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION link_fiscal(payload JSONB)
 RETURNS UUID
 LANGUAGE plpgsql

@@ -63,8 +63,22 @@ de modificar una función hay que recargarla a mano, o el cambio no llega a la b
 docker compose exec -T db psql -U geoecon -d geoecon -v ON_ERROR_STOP=1 < db/init/002_functions.sql
 ```
 
-Para cambiar el esquema o los datos semilla hay que bajar y volver a levantar el
-volumen. Es una limitación conocida: no hay sistema de migraciones.
+Si tocás `001_schema.sql` (columnas, índices, claves foráneas) eso **no alcanza**:
+tenés que aplicar el `ALTER TABLE` sobre la base existente, o bajar y volver a
+levantar el volumen.
+
+Es una limitación conocida: no hay sistema de migraciones.
+
+### Columnas materializadas
+
+`businesses.neighborhood_id` guarda a qué barrio o zona pertenece cada comercio.
+Lo calcula `assign_business_neighborhoods()`, que `barrios` y `villa-nueva`
+llaman al terminar de cargar los polígonos.
+
+Se materializó en vez de resolverse por geometría en cada consulta porque eso
+cuesta ~120 ms sobre el padrón entero, y el visor lo pide en cada arranque. La
+columna quedó **más rápida que la consulta original sin barrio**, y garantiza que
+la lista y la ficha muestren siempre el mismo.
 
 ## Tests
 

@@ -75,6 +75,7 @@ def import_barrios(conn, path: Path | None = None) -> int:
         WHERE n.neighborhood_id = src.neighborhood_id
         """
     )
+    conn.execute("SELECT assign_business_neighborhoods()")
     conn.commit()
     row = conn.execute("SELECT COUNT(*) AS n FROM neighborhoods").fetchone()
     return int(row["n"] if row else 0)
@@ -179,6 +180,7 @@ def import_villa_nueva(conn, wfs_url: str) -> int:
         """,
         (VILLA_NUEVA_SOURCE,),
     )
+    conn.execute("SELECT assign_business_neighborhoods()")
     conn.commit()
     row = conn.execute(
         "SELECT COUNT(*) AS n FROM neighborhoods WHERE source = %s",

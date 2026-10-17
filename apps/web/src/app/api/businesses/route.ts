@@ -17,15 +17,8 @@ export async function GET(request: Request) {
         b.reviews_total AS "reviewsTotal",
         b.estimated_monthly_revenue_ars::float8 AS revenue,
         b.activity_tier AS tier,
-        n.neighborhood_id AS "neighborhoodId"
+        b.neighborhood_id AS "neighborhoodId"
       FROM businesses b
-      LEFT JOIN LATERAL (
-        SELECT neighborhood_id
-        FROM neighborhoods
-        WHERE ST_Intersects(geom, b.geom)
-        ORDER BY ST_Area(geom)
-        LIMIT 1
-      ) n ON true
       WHERE ${category}::text IS NULL OR b.category = ${category}
       ORDER BY b.name
     `;
