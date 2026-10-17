@@ -42,6 +42,11 @@ def main() -> None:
     fiscal = sub.add_parser("arca-csv", help="Vincula un CSV local de CUIT. No consulta ARCA en línea")
     fiscal.add_argument("--path", required=True, type=Path)
 
+    sub.add_parser(
+        "catchment",
+        help="Recalcula el catchment y el tier por tamaño con el modelo de Huff",
+    )
+
     sub.add_parser("selftest", help="Pruebas locales sin base")
 
     args = parser.parse_args()
@@ -65,6 +70,10 @@ def main() -> None:
             count = conn.execute("SELECT recalculate_estimates() AS n").fetchone()["n"]
             conn.commit()
             print(f"estimados: {count}")
+        elif args.command == "catchment":
+            count = conn.execute("SELECT assign_business_catchment() AS n").fetchone()["n"]
+            conn.commit()
+            print(f"catchments: {count}")
         elif args.command == "reclassify":
             from geoecon.categories import reclassify_otro
 
@@ -130,7 +139,9 @@ def main() -> None:
 
             linked, skipped = link_csv(conn, args.path)
             print(f"vinculados: {linked}; omitidos: {skipped}")
-        def _selftest() -> None:
+
+
+def _selftest() -> None:
     # Solo módulos sin dependencias de red ni geo: importar geoecon.barrios
     # arrastraba httpx, shapefile, pyproj y shapely, y hacía que este comando
     # fallara en un host donde nunca se instalaron.

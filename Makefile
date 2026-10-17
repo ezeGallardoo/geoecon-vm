@@ -1,4 +1,4 @@
-.PHONY: db osm estimate dev selftest test
+.PHONY: db osm estimate catchment refresh dev selftest test
 
 db:
 	colima start
@@ -10,6 +10,14 @@ osm:
 
 estimate:
 	docker compose --profile tools run --rm ingest estimate
+
+# Modelo de Huff: catchment por comercio y tier por tamaño. Necesita que urban_zones
+# estén cargados (census-vm). Sin esto el mapa muestra todo en tier 1.
+catchment:
+	docker compose --profile tools run --rm ingest catchment
+
+# Todo el derivado, en orden. Es lo que hay que correr después de cargar datos.
+refresh: estimate catchment
 
 dev:
 	npm --prefix apps/web run dev
