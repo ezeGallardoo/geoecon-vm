@@ -19,7 +19,8 @@ catchment:
 # Todo el derivado, en orden. Es lo que hay que correr después de cargar datos.
 refresh: estimate catchment
 
-dev:
+# Todo junto: base (Colima + PostGIS) y front.
+dev: db
 	npm --prefix apps/web run dev
 
 selftest:
