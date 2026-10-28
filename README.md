@@ -16,7 +16,7 @@ La capa pinta el censo 2022. Donde vive más gente, el color tiene más contrast
 
 ## La grilla
 
-`/demo` dibuja la grilla de 400 m, la misma que arma `generate_vm_grid()`. No muestra comercios ni huecos de demanda.
+Cada celda mide 400 m. El mapa usa esa grilla para marcar dónde hay demanda que todavía no tiene local. `/demo` dibuja las 380 celdas de Villa María y Villa Nueva sin base de datos, y no muestra comercios ni huecos.
 
 ![Grilla de 400 m sobre Villa María y Villa Nueva](docs/grilla.png)
 
