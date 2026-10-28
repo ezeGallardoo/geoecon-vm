@@ -2,7 +2,7 @@
 
 import type { FeatureCollection, GeoJsonProperties } from "geojson";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { Inspector } from "@/components/inspector";
 import type { ZoneTip } from "@/components/map-canvas";
 import { useGaps } from "@/hooks/use-gaps";
@@ -320,6 +320,9 @@ export function Visor() {
       return true;
     });
   }, [points, category, needle, cityFeatures.length, insideCity, selectedId]);
+  // El filtro del buscador cambia en cada tecla. Diferir los puntos deja que
+  // el input responda ya, y el mapa reconstruye la capa un frame después.
+  const mapPoints = useDeferredValue(visiblePoints);
   const matches = useMemo(() => {
     if (needle.length < 2) return [];
     return points.filter((point) => {
@@ -348,7 +351,7 @@ export function Visor() {
   return (
     <main id="mesa" tabIndex={-1} className="desk desk--rails">
       <MapCanvas
-        points={visiblePoints}
+        points={mapPoints}
         zones={cityZones}
         showPoints={showPoints}
         showHeat={showHeat}
@@ -366,7 +369,7 @@ export function Visor() {
         showRadius={showRadius}
         onMove={setCenter}
         onPick={openPoint}
-        onToggleRadius={() => setShowRadius((value) => !value)}
+        onToggleRadius={() => setShowRadius(!showRadius)}
       />
       <div className="tools">
         <label>
@@ -468,26 +471,26 @@ export function Visor() {
         </div>
         <p className="hint">Cada botón deja solo esa ciudad. La otra queda afuera.</p>
         <div className="toggles" role="group" aria-label="Capas del mapa">
-          <button type="button" aria-pressed={showRadius} onClick={() => setShowRadius((value) => !value)}>
+          <button type="button" aria-pressed={showRadius} onClick={() => setShowRadius(!showRadius)}>
             Radio
           </button>
-          <button type="button" aria-pressed={showPoints} onClick={() => setShowPoints((value) => !value)}>
+          <button type="button" aria-pressed={showPoints} onClick={() => setShowPoints(!showPoints)}>
             Puntos
           </button>
-          <button type="button" aria-pressed={showHeat} onClick={() => setShowHeat((value) => !value)}>
+          <button type="button" aria-pressed={showHeat} onClick={() => setShowHeat(!showHeat)}>
             Calor
           </button>
           <button
             type="button"
             aria-pressed={choropleth === "density"}
-            onClick={() => setChoropleth((value) => (value === "density" ? "off" : "density"))}
+            onClick={() => setChoropleth(choropleth === "density" ? "off" : "density")}
           >
             Habitantes
           </button>
           <button
             type="button"
             aria-pressed={choropleth === "land"}
-            onClick={() => setChoropleth((value) => (value === "land" ? "off" : "land"))}
+            onClick={() => setChoropleth(choropleth === "land" ? "off" : "land")}
           >
             Suelo
           </button>

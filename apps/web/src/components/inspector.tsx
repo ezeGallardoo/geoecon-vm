@@ -195,7 +195,7 @@ export function Inspector({
                     type="button"
                     className="text-button"
                     aria-expanded={showAllGaps}
-                    onClick={() => setShowAllGaps((value) => !value)}
+                    onClick={() => setShowAllGaps(!showAllGaps)}
                   >
                     {showAllGaps ? "Ver menos" : `Ver las ${gaps.features.length.toLocaleString("es-AR")} celdas`}
                   </button>
@@ -229,7 +229,7 @@ export function Inspector({
                 type="button"
                 className="text-button"
                 aria-expanded={expanded}
-                onClick={() => setExpanded((value) => !value)}
+                onClick={() => setExpanded(!expanded)}
               >
                 {expanded ? "Ver menos" : `Ver los ${rows.length.toLocaleString("es-AR")} rubros`}
               </button>

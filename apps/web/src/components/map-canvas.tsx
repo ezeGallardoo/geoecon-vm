@@ -7,7 +7,7 @@ import type { FeatureCollection, Polygon } from "geojson";
 import { Map, NavigationControl, setWorkerUrl, type ExpressionSpecification, type GeoJSONSource, type IControl } from "maplibre-gl";
 
 setWorkerUrl("/maplibre-gl-worker.js");
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CATEGORY_COLOR, OVERVIEW_ZOOM, circlePolygon, pointRadiusPx, type BusinessPoint, type GapCell } from "@/lib/domain";
 import { LAND_STOPS, POP_STOPS, formatLandUsd, landUsd } from "@/lib/land";
 
@@ -92,11 +92,18 @@ export function MapCanvas({
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
+    // En una pantalla retina el mapa y el canvas de deck.gl se pintan a 2x.
+    // Bajar el tope a 1.5 recorta el relleno de píxeles al arrastrar, que es
+    // donde el visor se trababa, sin dejar el basemap notablemente blando.
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 1.5);
     const map = new Map({
       container: containerRef.current,
       style: "https://tiles.openfreemap.org/styles/dark",
       center: [startCenter.current.lng, startCenter.current.lat],
       zoom: 13,
+      pixelRatio,
+      fadeDuration: 0,
+      cancelPendingTileRequestsWhileZooming: true,
       maxBounds: [
         [-63.36, -32.56],
         [-63.14, -32.32],
@@ -109,10 +116,12 @@ export function MapCanvas({
     // "undefined is not an object (evaluating 'map.transform.height')".
     const overlay = new MapboxOverlay({
       interleaved: false,
+      useDevicePixels: pixelRatio,
       layers: [],
     });
     map.addControl(overlay as unknown as IControl);
     let moveTimer: number | undefined;
+    let hoverFrame = 0;
     let lastInsideAt = 0;
     let toggledAt = 0;
     const toggleCircle = () => {
@@ -212,24 +221,26 @@ export function MapCanvas({
         },
       });
       let hoverId = "";
-      const readZone = (event: { point: { x: number; y: number } }) => {
-        if (zoneModeRef.current === "off") {
-          if (hoverId) {
-            hoverId = "";
-            hoverZoneRef.current(null);
-          }
-          map.getCanvas().style.cursor = "";
-          return;
-        }
-        const hits = map.queryRenderedFeatures([event.point.x, event.point.y], { layers: ["zones-fill"] });
+      let hoverPoint: { x: number; y: number } | null = null;
+      const clearHover = () => {
+        if (!hoverId) return;
+        hoverId = "";
+        hoverZoneRef.current(null);
+        map.getCanvas().style.cursor = "";
+      };
+      // queryRenderedFeatures lee la GPU en el hilo principal. Hacerlo en cada
+      // mousemove, y encima mientras el mapa se arrastra, es lo que congelaba
+      // el paneo. Una sola lectura por frame, y ninguna durante el gesto.
+      const readZone = () => {
+        hoverFrame = 0;
+        const point = hoverPoint;
+        hoverPoint = null;
+        if (!point || zoneModeRef.current === "off" || map.isMoving() || map.isZooming()) return;
+        const hits = map.queryRenderedFeatures([point.x, point.y], { layers: ["zones-fill"] });
         const props = hits[0]?.properties as Record<string, unknown> | undefined;
         const landValue = Number(props?.landValue ?? 0);
         if (!props || (zoneModeRef.current === "land" && landValue <= 0)) {
-          if (hoverId) {
-            hoverId = "";
-            hoverZoneRef.current(null);
-          }
-          map.getCanvas().style.cursor = "";
+          clearHover();
           return;
         }
         const id = String(props.zoneId ?? props.name ?? "");
@@ -244,7 +255,15 @@ export function MapCanvas({
           population: Number(props.population ?? 0),
         });
       };
-      map.on("mousemove", readZone);
+      map.on("mousemove", (event) => {
+        if (zoneModeRef.current === "off") {
+          clearHover();
+          return;
+        }
+        if (map.isMoving() || map.isZooming()) return;
+        hoverPoint = event.point;
+        if (!hoverFrame) hoverFrame = window.requestAnimationFrame(readZone);
+      });
       map.on("mouseout", () => {
         hoverId = "";
         hoverZoneRef.current(null);
@@ -282,6 +301,8 @@ export function MapCanvas({
       setReady(true);
     });
     return () => {
+      if (hoverFrame) window.cancelAnimationFrame(hoverFrame);
+      if (moveTimer) window.clearTimeout(moveTimer);
       map.remove();
       mapRef.current = null;
       overlayRef.current = null;
@@ -289,26 +310,32 @@ export function MapCanvas({
     };
   }, []);
 
+  const labeledZones = useMemo(() => labelZones(zones), [zones]);
+
   useEffect(() => {
     const map = mapRef.current;
-    const overlay = overlayRef.current;
-    // No usar map.isStyleLoaded(): justo después de "load" da false mientras las
-    // fuentes GeoJSON recién agregadas cargan, y si los datos ya llegaron el
-    // efecto no vuelve a correr y el mapa queda vacío.
-    if (!ready || !map || !overlay) return;
-
-    // El tamaño del punto depende del zoom, así que hay que reconstruir la capa
-    // cuando este cambia. Se redondea al entero y setState baila si el valor no
-    // cambió, así que un zoom con la rueda no rehace las capas en cada frame.
-    const onZoom = () => {
+    if (!ready || !map) return;
+    // El tamaño del punto depende del zoom, pero reconstruirlo en cada evento
+    // "zoom" corta la rueda a la mitad. Se actualiza al soltar el gesto.
+    const onZoomEnd = () => {
       const step = Math.round(map.getZoom());
       setZoomStep((prev) => (prev === step ? prev : step));
     };
-    map.on("zoom", onZoom);
-    onZoom();
+    map.on("zoomend", onZoomEnd);
+    onZoomEnd();
+    return () => {
+      map.off("zoomend", onZoomEnd);
+    };
+  }, [ready]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    // No usar map.isStyleLoaded(): justo después de "load" da false mientras las
+    // fuentes GeoJSON recién agregadas cargan, y si los datos ya llegaron el
+    // efecto no vuelve a correr y el mapa queda vacío.
+    if (!ready || !map) return;
     const zoneSource = map.getSource("zones") as GeoJSONSource | undefined;
-    zoneSource?.setData(showZones ? labelZones(zones) : EMPTY);
+    zoneSource?.setData(showZones ? labeledZones : EMPTY);
     const zoneVisibility = showZones ? "visible" : "none";
     map.setLayoutProperty("zones-fill", "visibility", zoneVisibility);
     map.setLayoutProperty("zones-line", "visibility", zoneVisibility);
@@ -321,16 +348,19 @@ export function MapCanvas({
     );
     map.setPaintProperty("zones-fill", "fill-color", zoneMode === "density" ? DENSITY_COLOR : LAND_COLOR);
     map.setPaintProperty("zones-fill", "fill-opacity", zoneMode === "density" ? DENSITY_OPACITY : LAND_OPACITY);
-    map.setPaintProperty("zones-line", "line-color", "#e7c27a");
-    map.setPaintProperty("zones-line", "line-opacity", 0.55);
-    map.setPaintProperty("zones-line", "line-width", 1);
-    map.setPaintProperty("gaps-line", "line-width", 1);
-    map.setPaintProperty("radius-line", "line-width", 1);
     map.setPaintProperty("gaps-fill", "fill-opacity", zoneMode === "land" ? 0.08 : 0.16);
+  }, [ready, labeledZones, showZones, zoneMode]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
     const gapSource = map.getSource("gaps") as GeoJSONSource | undefined;
     gapSource?.setData(gaps);
+  }, [ready, gaps]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!ready || !map) return;
     const radiusSource = map.getSource("radius") as GeoJSONSource | undefined;
     radiusSource?.setData(
       showRadius
@@ -348,13 +378,17 @@ export function MapCanvas({
     );
     map.setLayoutProperty("radius-fill", "visibility", showRadius ? "visible" : "none");
     map.setLayoutProperty("radius-line", "visibility", showRadius ? "visible" : "none");
+  }, [ready, center, radiusM, showRadius]);
 
-    overlay.setProps({
-      layers: [
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!ready || !overlay) return;
+    const layers = [];
+    if (showHeat) {
+      layers.push(
         new HeatmapLayer<BusinessPoint>({
           id: "heat",
           data: points,
-          visible: showHeat,
           getPosition: (point) => [point.lng, point.lat],
           getWeight: 1,
           radiusPixels: 28,
@@ -368,44 +402,44 @@ export function MapCanvas({
             [176, 64, 48, 170],
           ],
         }),
-        new ScatterplotLayer<BusinessPoint>({
-          id: "points",
-          data: points,
-          visible: showPoints,
-          pickable: true,
-          stroked: true,
-          filled: true,
-          // El radio se calcula en píxeles a partir del zoom: el punto se achica al
-          // alejar y se agranda al acercar, en vez de tener siempre el mismo
-          // tamaño de pantalla. Eso es lo que evita que los 1.200 comercios del
-          // centro de Villa María se solapen en una mancha.
-          //
-          // Por qué no usar radiusMinPixels de deck.gl: el recorte sería global
-          // y al alejar los cinco tiers caerían todos al mismo mínimo,
-          // perdiéndose la lectura del tamaño justo en la vista general, que es
-          // donde más se usa. El factor va acá, no ahí.
-          radiusUnits: "pixels",
-          lineWidthUnits: "pixels",
-          getPosition: (point) => [point.lng, point.lat],
-          getRadius: (point) => pointRadiusPx(point.tier, zoomStep),
-          getFillColor: (point) =>
-            CATEGORY_COLOR[point.category] ?? CATEGORY_COLOR.otro,
-          // Halo: sin un contorno claro el punto se pierde contra las calles
-          // del basemap, que también son líneas finas.
-          getLineColor: (point) =>
-            point.id === selectedId
-              ? [255, 248, 232, 255]
-              : point.tier >= 4
-                ? [255, 240, 214, 150]
-                : [8, 12, 10, 210],
-          getLineWidth: (point) => (point.id === selectedId ? 2.4 : point.tier >= 4 ? 1.3 : 1),
-        }),
-      ],
-    });
-    return () => {
-      map.off("zoom", onZoom);
-    };
-  }, [ready, zoomStep, points, zones, showPoints, showHeat, showZones, zoneMode, selectedId, center, radiusM, gaps, showRadius]);
+      );
+    }
+    layers.push(
+      new ScatterplotLayer<BusinessPoint>({
+        id: "points",
+        data: points,
+        visible: showPoints,
+        pickable: true,
+        stroked: true,
+        filled: true,
+        // El radio se calcula en píxeles a partir del zoom: el punto se achica al
+        // alejar y se agranda al acercar, en vez de tener siempre el mismo
+        // tamaño de pantalla. Eso es lo que evita que los 1.200 comercios del
+        // centro de Villa María se solapen en una mancha.
+        //
+        // Por qué no usar radiusMinPixels de deck.gl: el recorte sería global
+        // y al alejar los cinco tiers caerían todos al mismo mínimo,
+        // perdiéndose la lectura del tamaño justo en la vista general, que es
+        // donde más se usa. El factor va acá, no ahí.
+        radiusUnits: "pixels",
+        lineWidthUnits: "pixels",
+        getPosition: (point) => [point.lng, point.lat],
+        getRadius: (point) => pointRadiusPx(point.tier, zoomStep),
+        getFillColor: (point) => CATEGORY_COLOR[point.category] ?? CATEGORY_COLOR.otro,
+        // Halo: sin un contorno claro el punto se pierde contra las calles
+        // del basemap, que también son líneas finas.
+        getLineColor: (point) =>
+          point.id === selectedId ? [255, 248, 232, 255] : point.tier >= 4 ? [255, 240, 214, 150] : [8, 12, 10, 210],
+        getLineWidth: (point) => (point.id === selectedId ? 2.4 : point.tier >= 4 ? 1.3 : 1),
+        updateTriggers: {
+          getRadius: zoomStep,
+          getLineColor: selectedId,
+          getLineWidth: selectedId,
+        },
+      }),
+    );
+    overlay.setProps({ layers });
+  }, [ready, zoomStep, points, showPoints, showHeat, selectedId]);
 
   useEffect(() => {
     const map = mapRef.current;
