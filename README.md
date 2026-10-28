@@ -1,12 +1,24 @@
-# GeoRadar B2B — GeoEcon VM
+# GeoRadar
 
-Mesa de catastro comercial para Villa María y Villa Nueva, Córdoba.
+Mesa de catastro comercial para Villa María y Villa Nueva.
 
-Cruza un padrón de comercios con el censo 2022, el valor de suelo de IDECOR y la
-situación crediticia de BCRA para responder una pregunta: **dónde hay demanda que
-todavía no tiene local**.
+El mapa lee el padrón ya cargado. El cálculo del radio corre en PostGIS, no en el navegador. Cruza comercios, el censo 2022 y el valor de suelo de IDECOR para marcar dónde hay demanda que todavía no tiene local. El consumo potencial sale de un modelo de Huff. No es facturación.
 
-No es un dato observado. Es un modelo con supuestos explícitos y editables.
+![Mesa de catastro comercial, con el padrón de Villa María y el radio de 500 m](docs/mesa.png)
+
+En esa captura Villa María muestra 1.094 comercios, 380 celdas y 92.588 habitantes del censo 2022. Dentro del radio de 500 m hay 189 comercios y 3.491 habitantes. Esos números salen del padrón cargado ese día.
+
+## Habitantes
+
+La capa pinta el censo 2022. Donde vive más gente, el color tiene más contraste. Villa Nueva no publica barrios: sus zonas son unidades del código urbanístico 2026.
+
+![Capa de habitantes del censo 2022 sobre Villa María](docs/habitantes.png)
+
+## La grilla
+
+`/demo` dibuja la grilla de 400 m, la misma que arma `generate_vm_grid()`. No muestra comercios ni huecos de demanda.
+
+![Grilla de 400 m sobre Villa María y Villa Nueva](docs/grilla.png)
 
 ## Stack
 
@@ -209,10 +221,7 @@ la facturación real y el API prioriza ese tier sobre el del modelo.
 
 ## Demo estática
 
-`/demo` dibuja la grilla de 400 m sobre el mapa, sin PostGIS. El archivo
-`apps/web/public/snapshot/grid.geojson` sale de las mismas constantes que
-`generate_vm_grid()`. No incluye comercios ni huecos de demanda: eso lo agrega
-`python -m geoecon snapshot` cuando la base está cargada.
+La captura de [la grilla](#la-grilla) sale de `apps/web/public/snapshot/grid.geojson`, con las mismas constantes que `generate_vm_grid()`. `python -m geoecon snapshot` regenera ese archivo. Los comercios y los huecos de demanda siguen en la mesa, con PostGIS.
 
 ## Advertencias
 
