@@ -443,19 +443,19 @@ a:focus-visible {
   height: 100%;
   overflow: auto;
   overscroll-behavior: contain;
-  scrollbar-color: #c8bba4 transparent;
-  padding: max(28px, env(safe-area-inset-top)) 22px max(32px, env(safe-area-inset-bottom)) 28px;
-  color: #1c1914;
+  scrollbar-color: #3a4038 transparent;
+  padding: max(28px, env(safe-area-inset-top)) 22px max(32px, env(safe-area-inset-bottom)) 22px;
+  color: var(--paper);
   background:
-    linear-gradient(#b43324, #b43324) 0 0 / 3px 100% no-repeat,
-    repeating-linear-gradient(#f6f1e6, #f6f1e6 27px, rgba(28, 25, 20, 0.06) 28px),
-    #f3ecdf;
-  border-left: 0;
+    linear-gradient(var(--brass), var(--brass)) 12px 12px / 14px 1px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 12px 12px / 1px 14px no-repeat,
+    #0a0f0c;
+  border-left: 1px solid rgba(210, 161, 90, 0.35);
 }
 
 .eyebrow {
   margin: 0;
-  color: #8a3a22;
+  color: var(--brass);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 11px;
@@ -476,55 +476,6 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
-}
-
-.inspector .lede,
-.inspector .note,
-.inspector .empty,
-.inspector .statline,
-.inspector .meters dt,
-.inspector .meters dd small,
-.inspector .cross dt,
-.inspector .cross small,
-.inspector .potential span,
-.inspector .ficha dt {
-  color: #5c5346;
-}
-
-.inspector .saturation,
-.inspector .where button,
-.inspector .ficha a,
-.inspector .ficha h3,
-.inspector .potential strong,
-.inspector h2 {
-  color: #1c1914;
-}
-
-.inspector .where button:hover,
-.inspector .where button:focus-visible,
-.inspector .rubro,
-.inspector .where button b,
-.inspector .where small {
-  color: #8a3a22;
-}
-
-.inspector .track { background: #e4d9c6; }
-
-.inspector .alert {
-  color: #6e2e1c;
-  border-color: rgba(157, 43, 31, 0.45);
-}
-
-.inspector .alert button,
-.inspector .text-button {
-  color: #1c1914;
-  border-color: #c8bba4;
-}
-
-.inspector .text-button:hover,
-.inspector .text-button:focus-visible {
-  color: #8a3a22;
-  border-color: #8a3a22;
 }
 
 .alert {
@@ -736,7 +687,7 @@ a:focus-visible {
 .ficha small {
   display: block;
   margin-top: 2px;
-  color: #5c5346;
+  color: var(--muted);
   font-size: 12px;
   letter-spacing: 0;
   text-transform: none;
@@ -754,7 +705,13 @@ a:focus-visible {
   .desk { overflow: auto; height: auto; min-height: 100dvh; }
   .map-canvas,
   .desk--rails .map-canvas { position: relative; inset: auto; height: 62dvh; }
-  .inspector { position: relative; width: 100%; height: auto; }
+  .inspector {
+    position: relative;
+    width: 100%;
+    height: auto;
+    border-left: 0;
+    border-top: 1px solid rgba(210, 161, 90, 0.35);
+  }
   .tools { position: relative; inset: auto; width: 100%; border-right: 0; border-top: 1px solid rgba(210, 161, 90, 0.35); }
 }
 
