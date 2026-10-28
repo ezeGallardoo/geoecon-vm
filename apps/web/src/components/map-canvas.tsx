@@ -292,7 +292,10 @@ export function MapCanvas({
   useEffect(() => {
     const map = mapRef.current;
     const overlay = overlayRef.current;
-    if (!ready || !map || !overlay || !map.isStyleLoaded()) return;
+    // No usar map.isStyleLoaded(): justo después de "load" da false mientras las
+    // fuentes GeoJSON recién agregadas cargan, y si los datos ya llegaron el
+    // efecto no vuelve a correr y el mapa queda vacío.
+    if (!ready || !map || !overlay) return;
 
     // El tamaño del punto depende del zoom, así que hay que reconstruir la capa
     // cuando este cambia. Se redondea al entero y setState baila si el valor no
