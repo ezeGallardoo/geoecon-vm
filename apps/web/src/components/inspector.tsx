@@ -77,8 +77,7 @@ export function Inspector({
       <p className="eyebrow">Villa María y Villa Nueva · Córdoba</p>
       <h1>Mesa de catastro comercial</h1>
       <p className="lede">
-        El mapa lee el padrón ya cargado. El cálculo del radio corre en <span translate="no">PostGIS</span>,
-        no en el navegador.
+        Cruza el padrón, el censo 2022 y el suelo de IDECOR. El radio se calcula en <span translate="no">PostGIS</span>.
       </p>
 
       {dbError ? (
@@ -302,8 +301,8 @@ export function Inspector({
                   {detail.revenue != null ? money(detail.revenue) : "sin señal suficiente"}
                   <small>
                     {detail.revenue != null
-                      ? "supuesto con reseñas, ticket y suelo. No es facturación."
-                      : "hacen falta reseñas o una señal de deuda. No es facturación."}
+                      ? "Supuesto a partir de reseñas, ticket y suelo."
+                      : "Hacen falta reseñas o una señal de deuda."}
                   </small>
                 </dd>
               </div>
@@ -364,9 +363,9 @@ export function Inspector({
               </div>
             </dl>
             <p className="note">
-              El consumo potencial sale de un modelo de gravedad de Huff sobre la población
-              censal y el ticket del rubro: sirve para comparar locales entre sí, no para
-              declarar facturación. No hay dato de ventas con el cual validarlo.
+              El consumo potencial sale del modelo de Huff, con la población del censo y el
+              ticket del rubro. Compara locales entre sí. No hay ventas cargadas para
+              contrastarlo.
             </p>
           </div>
         ) : (

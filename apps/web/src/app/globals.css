@@ -135,20 +135,6 @@ body {
   inset: 0;
 }
 
-.hint.demo-note {
-  position: absolute;
-  right: 16px;
-  bottom: 16px;
-  left: 16px;
-  z-index: 4;
-  max-width: 520px;
-  margin: 0;
-  padding: 12px 14px 12px 18px;
-  border-left: 3px solid #b43324;
-  background: #f3ecdf;
-  color: #1c1914;
-}
-
 /* MapLibre mete el deck-widget-container dentro de .maplibregl-ctrl-top-left,
    una caja de 39x68 px que es el botón +/−. Con position:absolute e inset:0
    el canvas de los puntos escapa de esa caja y ocupa el mapa entero. El z-index

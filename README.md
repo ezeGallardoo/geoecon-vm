@@ -2,23 +2,17 @@
 
 Mesa de catastro comercial para Villa María y Villa Nueva.
 
-El mapa lee el padrón ya cargado. El cálculo del radio corre en PostGIS, no en el navegador. Cruza comercios, el censo 2022 y el valor de suelo de IDECOR para marcar dónde hay demanda que todavía no tiene local. El consumo potencial sale de un modelo de Huff. No es facturación.
+El mapa cruza el padrón de comercios, el censo 2022 y el valor de suelo de IDECOR. Marca dónde hay demanda que todavía no tiene un local. El radio se calcula en PostGIS. Un modelo de Huff ordena cada local según el consumo potencial de su zona.
 
 ![Mesa de catastro comercial, con el padrón de Villa María y el radio de 500 m](docs/mesa.png)
 
-En esa captura Villa María muestra 1.094 comercios, 380 celdas y 92.588 habitantes del censo 2022. Dentro del radio de 500 m hay 189 comercios y 3.491 habitantes. Esos números salen del padrón cargado ese día.
+Villa María, el día de la captura: 1.094 comercios, 380 celdas y 92.588 habitantes del censo 2022. Dentro del radio de 500 m hay 189 comercios y 3.491 habitantes.
 
 ## Habitantes
 
-La capa pinta el censo 2022. Donde vive más gente, el color tiene más contraste. Villa Nueva no publica barrios: sus zonas son unidades del código urbanístico 2026.
+Pinta el censo 2022. Donde vive más gente, el color tiene más contraste. Villa Nueva no publica barrios: sus zonas salen del código urbanístico 2026.
 
 ![Capa de habitantes del censo 2022 sobre Villa María](docs/habitantes.png)
-
-## La grilla
-
-Cada celda mide 400 m. El mapa usa esa grilla para marcar dónde hay demanda que todavía no tiene local. `/demo` dibuja las 380 celdas de Villa María y Villa Nueva sin base de datos, y no muestra comercios ni huecos.
-
-![Grilla de 400 m sobre Villa María y Villa Nueva](docs/grilla.png)
 
 ## Stack
 
@@ -211,17 +205,12 @@ Con `A_j = 1` para todos, porque no tenemos superficie del local. Los parámetro
 —exponente de decaimiento, radio máximo y distancia mínima— están en
 `model_settings` y se ajustan con `assign_business_catchment()`.
 
-Sirve para **ordenar y comparar locales entre sí**. No sirve para declarar
-facturación, y la ficha del visor lo dice en pantalla. La limitation conocida:
-despensa, almacén y supermercado son sustitutos pero compiten solo consigo
-mismos, así que el solapamiento real está subestimado.
+Ordena y compara locales entre sí. La ficha lo muestra como comparación.
+Despensa, almacén y supermercado son sustitutos, pero cada rubro compite solo
+consigo mismo, así que el solapamiento real queda corto.
 
 Cuando aparezca una señal de reseñas o fiscal, `recalculate_estimates()` calcula
 la facturación real y el API prioriza ese tier sobre el del modelo.
-
-## Demo estática
-
-La captura de [la grilla](#la-grilla) sale de `apps/web/public/snapshot/grid.geojson`, con las mismas constantes que `generate_vm_grid()`. `python -m geoecon snapshot` regenera ese archivo. Los comercios y los huecos de demanda siguen en la mesa, con PostGIS.
 
 ## Advertencias
 

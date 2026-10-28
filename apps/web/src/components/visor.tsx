@@ -516,7 +516,7 @@ export function Visor() {
               </p>
             ) : (
               <p className="hint">
-                Cada polígono lleva su nombre y el valor. Villa Nueva no publica barrios: esas zonas son el código urbanístico 2026.
+                Cada polígono lleva su nombre y el valor del suelo. En Villa Nueva las zonas salen del código urbanístico 2026: el municipio no publica barrios.
               </p>
             )}
           </div>
@@ -542,7 +542,7 @@ export function Visor() {
               </p>
             ) : (
               <p className="hint">
-                Cada polígono lleva su nombre y la población. Villa Nueva no publica barrios: esas zonas son el código urbanístico 2026.
+                Cada polígono lleva su nombre y su población. En Villa Nueva las zonas salen del código urbanístico 2026: el municipio no publica barrios.
               </p>
             )}
           </div>
@@ -555,8 +555,8 @@ export function Visor() {
         <details className="legend" open>
           <summary>Leyenda</summary>
           <p className="legend-lead">
-            El color es el rubro. El tamaño, el <em>consumo potencial</em> que el modelo
-            de gravedad de Huff le asigna a cada local según su catchment.
+            El color es el rubro. El tamaño es el consumo potencial que el modelo de Huff
+            asigna a cada local, según la población de su zona.
           </p>
           <ul className="tiers">
             {(overview?.tiers ?? TIER_FALLBACK).map((item, index, all) => (
