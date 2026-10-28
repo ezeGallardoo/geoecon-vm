@@ -297,18 +297,18 @@ export function Inspector({
                 </div>
               ) : null}
               <div>
-                <dt>{detail.revenue != null ? "Estimado mensual" : "Facturación"}</dt>
+                <dt>Estimado mensual</dt>
                 <dd>
-                  {detail.revenue != null ? money(detail.revenue) : "sin dato de ventas"}
+                  {detail.revenue != null ? money(detail.revenue) : "sin señal suficiente"}
                   <small>
                     {detail.revenue != null
-                      ? "según reseñas, ticket y suelo"
-                      : "el padrón viene de OpenStreetMap, que no publica reseñas"}
+                      ? "supuesto con reseñas, ticket y suelo. No es facturación."
+                      : "hacen falta reseñas o una señal de deuda. No es facturación."}
                   </small>
                 </dd>
               </div>
               <div>
-                <dt>Promedio del rubro</dt>
+                <dt>Promedio estimado del rubro</dt>
                 <dd>{money(detail.categoryAvgRevenue)}</dd>
               </div>
               <div>

@@ -300,6 +300,9 @@ a:focus-visible {
   padding: 0;
   display: grid;
   gap: 4px;
+  /* height evita que la lista, al ser un ítem de la grilla con overflow,
+     colapse a 0 y quede tapada por el texto de coincidencias. */
+  height: max-content;
   max-height: 240px;
   overflow: auto;
 }
@@ -744,6 +747,14 @@ a:focus-visible {
 .ficha dl div { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px; font-size: 14px; }
 .ficha dt { color: var(--muted); }
 .ficha dd { margin: 0; min-width: 0; font-variant-numeric: tabular-nums; }
+.ficha small {
+  display: block;
+  margin-top: 2px;
+  color: #5c5346;
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+}
 
 .boot {
   height: 100vh;
