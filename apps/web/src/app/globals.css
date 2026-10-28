@@ -191,10 +191,15 @@ body {
   overscroll-behavior: contain;
   display: grid;
   gap: 8px;
-  padding: 10px 12px 12px;
-  background: var(--panel);
-  border: 1px solid var(--line);
-  backdrop-filter: blur(4px);
+  padding: 14px 14px 12px;
+  background:
+    linear-gradient(var(--brass), var(--brass)) 10px 10px / 14px 1px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) 10px 10px / 1px 14px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) calc(100% - 10px) 10px / 14px 1px no-repeat,
+    linear-gradient(var(--brass), var(--brass)) calc(100% - 10px) 10px / 1px 14px no-repeat,
+    rgba(8, 12, 10, 0.94);
+  border: 1px solid rgba(243, 234, 216, 0.35);
+  box-shadow: inset 0 0 0 1px rgba(210, 161, 90, 0.28);
 }
 
 .tools label {
@@ -432,21 +437,24 @@ a:focus-visible {
   z-index: 2;
   top: 0;
   right: 0;
-  width: min(380px, 100vw);
+  width: min(400px, 100vw);
   height: 100%;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: max(20px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+  padding: max(28px, env(safe-area-inset-top)) 22px max(32px, env(safe-area-inset-bottom)) 28px;
+  color: #1c1914;
   background:
-    linear-gradient(180deg, rgba(22, 18, 12, 0.2), transparent 120px),
-    rgba(12, 16, 13, 0.88);
-  border-left: 1px solid var(--line);
+    linear-gradient(#b43324, #b43324) 0 0 / 3px 100% no-repeat,
+    repeating-linear-gradient(#f6f1e6, #f6f1e6 27px, rgba(28, 25, 20, 0.06) 28px),
+    #f3ecdf;
+  border-left: 0;
+  box-shadow: -24px 0 48px rgba(0, 0, 0, 0.38);
 }
 
 .eyebrow {
   margin: 0;
-  color: var(--brass);
-  letter-spacing: 0.12em;
+  color: #8a3a22;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 11px;
 }
@@ -466,6 +474,55 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.inspector .lede,
+.inspector .note,
+.inspector .empty,
+.inspector .statline,
+.inspector .meters dt,
+.inspector .meters dd small,
+.inspector .cross dt,
+.inspector .cross small,
+.inspector .potential span,
+.inspector .ficha dt {
+  color: #5c5346;
+}
+
+.inspector .saturation,
+.inspector .where button,
+.inspector .ficha a,
+.inspector .ficha h3,
+.inspector .potential strong,
+.inspector h2 {
+  color: #1c1914;
+}
+
+.inspector .where button:hover,
+.inspector .where button:focus-visible,
+.inspector .rubro,
+.inspector .where button b,
+.inspector .where small {
+  color: #8a3a22;
+}
+
+.inspector .track { background: #e4d9c6; }
+
+.inspector .alert {
+  color: #6e2e1c;
+  border-color: rgba(157, 43, 31, 0.45);
+}
+
+.inspector .alert button,
+.inspector .text-button {
+  color: #1c1914;
+  border-color: #c8bba4;
+}
+
+.inspector .text-button:hover,
+.inspector .text-button:focus-visible {
+  color: #8a3a22;
+  border-color: #8a3a22;
 }
 
 .alert {
