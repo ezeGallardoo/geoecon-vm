@@ -428,7 +428,7 @@ export function MapCanvas({
       map.fitBounds(frameBounds, {
         padding: narrow
           ? { top: 24, bottom: 24, left: 16, right: 16 }
-          : { top: 40, bottom: 48, left: 48, right: 400 },
+          : { top: 40, bottom: 48, left: 48, right: 48 },
         duration: reduce ? 0 : 450,
         maxZoom: 14,
       });

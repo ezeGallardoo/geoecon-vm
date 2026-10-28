@@ -346,7 +346,7 @@ export function Visor() {
   const labelOf = (value: string) => overview?.labels[value] ?? value;
 
   return (
-    <main id="mesa" tabIndex={-1} className="desk">
+    <main id="mesa" tabIndex={-1} className="desk desk--rails">
       <MapCanvas
         points={visiblePoints}
         zones={cityZones}
@@ -552,7 +552,7 @@ export function Visor() {
             {zoneNote}
           </p>
         ) : null}
-        <details className="legend">
+        <details className="legend" open>
           <summary>Leyenda</summary>
           <p className="legend-lead">
             El color es el rubro. El tamaño, el <em>consumo potencial</em> que el modelo

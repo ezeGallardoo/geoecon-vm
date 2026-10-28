@@ -8,6 +8,8 @@
   --muted: #b7b2a4;
   --brass: #d2a15a;
   --ember: #e07a3d;
+  --rail: 340px;
+  --sheet: 380px;
 }
 
 /* Reset propio. Antes venía del preflight de Tailwind; el proyecto no usa
@@ -133,7 +135,7 @@ body {
   inset: 0;
 }
 
-.demo-note {
+.hint.demo-note {
   position: absolute;
   right: 16px;
   bottom: 16px;
@@ -141,9 +143,10 @@ body {
   z-index: 4;
   max-width: 520px;
   margin: 0;
-  padding: 12px 14px;
-  border-radius: 12px;
-  background: rgba(16, 22, 18, 0.92);
+  padding: 12px 14px 12px 18px;
+  border-left: 3px solid #b43324;
+  background: #f3ecdf;
+  color: #1c1914;
 }
 
 /* MapLibre mete el deck-widget-container dentro de .maplibregl-ctrl-top-left,
@@ -163,6 +166,11 @@ body {
   inset: 0;
 }
 
+.maplibregl-ctrl-top-left .maplibregl-ctrl-group {
+  position: relative;
+  z-index: 4;
+}
+
 .maplibregl-control-container,
 .maplibregl-canvas-container {
   z-index: 2;
@@ -180,26 +188,31 @@ body {
 
 .maplibregl-ctrl-attrib a { color: var(--brass) !important; }
 
+.desk--rails .map-canvas {
+  left: var(--rail);
+  right: var(--sheet);
+}
+
 .tools {
   position: absolute;
   z-index: 2;
-  left: max(18px, env(safe-area-inset-left));
-  bottom: max(18px, env(safe-area-inset-bottom));
-  width: min(420px, calc(100vw - 36px));
-  max-height: min(62dvh, 620px);
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--rail);
   overflow: auto;
   overscroll-behavior: contain;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
   gap: 8px;
-  padding: 14px 14px 12px;
+  padding: max(26px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left));
   background:
     linear-gradient(var(--brass), var(--brass)) 10px 10px / 14px 1px no-repeat,
     linear-gradient(var(--brass), var(--brass)) 10px 10px / 1px 14px no-repeat,
-    linear-gradient(var(--brass), var(--brass)) calc(100% - 10px) 10px / 14px 1px no-repeat,
-    linear-gradient(var(--brass), var(--brass)) calc(100% - 10px) 10px / 1px 14px no-repeat,
-    rgba(8, 12, 10, 0.94);
-  border: 1px solid rgba(243, 234, 216, 0.35);
-  box-shadow: inset 0 0 0 1px rgba(210, 161, 90, 0.28);
+    #0a0f0c;
+  border-right: 1px solid rgba(210, 161, 90, 0.35);
+  scrollbar-color: #3a4038 transparent;
 }
 
 .tools label {
@@ -437,10 +450,11 @@ a:focus-visible {
   z-index: 2;
   top: 0;
   right: 0;
-  width: min(400px, 100vw);
+  width: min(var(--sheet), 100vw);
   height: 100%;
   overflow: auto;
   overscroll-behavior: contain;
+  scrollbar-color: #c8bba4 transparent;
   padding: max(28px, env(safe-area-inset-top)) 22px max(32px, env(safe-area-inset-bottom)) 28px;
   color: #1c1914;
   background:
@@ -448,7 +462,6 @@ a:focus-visible {
     repeating-linear-gradient(#f6f1e6, #f6f1e6 27px, rgba(28, 25, 20, 0.06) 28px),
     #f3ecdf;
   border-left: 0;
-  box-shadow: -24px 0 48px rgba(0, 0, 0, 0.38);
 }
 
 .eyebrow {
@@ -742,9 +755,10 @@ a:focus-visible {
 
 @media (max-width: 860px) {
   .desk { overflow: auto; height: auto; min-height: 100dvh; }
-  .map-canvas { position: relative; height: 68dvh; }
-  .inspector { position: relative; width: 100%; height: auto; border-left: 0; border-top: 1px solid var(--line); }
-  .tools { position: sticky; bottom: 0; width: 100%; left: 0; max-height: none; }
+  .map-canvas,
+  .desk--rails .map-canvas { position: relative; inset: auto; height: 62dvh; }
+  .inspector { position: relative; width: 100%; height: auto; }
+  .tools { position: relative; inset: auto; width: 100%; border-right: 0; border-top: 1px solid rgba(210, 161, 90, 0.35); }
 }
 
 @media (prefers-reduced-motion: reduce) {

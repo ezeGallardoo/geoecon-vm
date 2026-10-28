@@ -23,7 +23,7 @@ export function GridDemo() {
         id: "grid-line",
         type: "line",
         source: "grid",
-        paint: { "line-color": "#7cff6b", "line-width": 1, "line-opacity": 0.65 },
+        paint: { "line-color": "#d2a15a", "line-width": 1, "line-opacity": 0.6 },
       });
     });
     return () => map.remove();
