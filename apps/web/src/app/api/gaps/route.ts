@@ -1,12 +1,12 @@
 import { databaseUnavailable, prisma } from "@/lib/prisma";
+import { invalidQuery, parseCategory } from "@/lib/query";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const category = new URL(request.url).searchParams.get("category") ?? "";
-  if (!/^[a-z_]+$/.test(category)) {
-    return Response.json({ error: "Rubro inválido." }, { status: 400 });
-  }
+  const parsed = parseCategory(new URL(request.url).searchParams.get("category") ?? "");
+  if (!parsed.ok || parsed.value == null) return invalidQuery(parsed.ok ? "Rubro inválido." : parsed.error);
+  const category = parsed.value;
 
   try {
     const rows = await prisma.$queryRaw<Array<{ gaps: unknown }>>`

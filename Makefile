@@ -1,4 +1,4 @@
-.PHONY: db osm estimate catchment refresh dev selftest test
+.PHONY: db osm estimate catchment refresh dev selftest test snapshot
 
 db:
 	colima start
@@ -25,6 +25,9 @@ dev: db
 
 selftest:
 	cd services/ingest && python3 -m geoecon selftest
+
+snapshot:
+	cd services/ingest && python3 -m geoecon snapshot
 
 # Tests de la ingesta. Corren en el contenedor porque es el único lugar donde
 # están psycopg y las deps del ETL, y además es el Python que se despliega.

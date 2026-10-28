@@ -113,12 +113,12 @@ docker compose --profile tools run --rm ingest <comando> [flags]
 | `indec --path ...` | Radios censales en GeoJSON o Shapefile | — |
 | `arca-csv --path` | Vincula CUIT desde un padrón local | CSV con `cuit,name,legal_name,tax_regime,activity_code_clae` |
 | `bcra --cuit` | Consulta la Central de Deudores | CUIT ya vinculado |
-| `maps --category` | Barrido de Google Maps por celda | `pip install playwright && playwright install chromium` |
+| `snapshot` | Escribe la grilla de 400 m en `apps/web/public/snapshot/grid.geojson`. Si PostGIS responde, también vuelca comercios y huecos | — |
 
 ### Orden de carga recomendado
 
 ```
-census-vm  →  idecor  →  barrios / villa-nueva  →  osm / maps  →  arca-csv  →  bcra
+census-vm  →  idecor  →  barrios / villa-nueva  →  osm  →  arca-csv  →  bcra
 ```
 
 La población y el VUT de barrios y zonas se **derivan** de `urban_zones`. Correrlos
@@ -129,7 +129,6 @@ al revés deja barrios con población 0.
 | Dato | Origen | Acceso |
 |---|---|---|
 | Comercios | OpenStreetMap (Overpass) | gratuito, API pública |
-| Comercios | Google Maps (Playwright) | **scraping, ver Advertencias** |
 | Población | Censo 2022, radios censales | INDEC, CSV público |
 | Valor de suelo | VUT por parcela | IDECOR WFS |
 | Barrios VM | Shape municipal | datos abiertos del municipio |
@@ -208,19 +207,18 @@ mismos, así que el solapamiento real está subestimado.
 Cuando aparezca una señal de reseñas o fiscal, `recalculate_estimates()` calcula
 la facturación real y el API prioriza ese tier sobre el del modelo.
 
+## Demo estática
+
+`/demo` dibuja la grilla de 400 m sobre el mapa, sin PostGIS. El archivo
+`apps/web/public/snapshot/grid.geojson` sale de las mismas constantes que
+`generate_vm_grid()`. No incluye comercios ni huecos de demanda: eso lo agrega
+`python -m geoecon snapshot` cuando la base está cargada.
+
 ## Advertencias
 
-- **Google Maps se scrapea con Playwright, y hoy NO FUNCIONA.** Medido el
-  17/10/2026: una búsqueda de "farmacia" con la URL anclada a Villa María
-  devuelve los 8 resultados de **Córdoba capital, a 140 km**. Ni la geolocalización
-  del contexto de Playwright ni el parámetro `!3m1!4b1` cambian nada: el
-  `@lat,lng` de `/maps/search/` mueve el mapa, no el centro de la búsqueda, y
-  Google decide la región por la IP de la sesión. El comando termina sin error y
-  escribe 0 fichas.
-  Arreglarlo exigiría atacar el RPC interno `/maps/preview/search`, que es igual
-  de frágil y mucho más|grayoso. **No corras `make maps` esperando datos.**
-- El filtro por distancia que tiene evita el peor resultado posible: que se
-  escriban farmacias de otra ciudad en el padrón de Villa María.
+- El barrido de Google Maps con Playwright se sacó del código. No formaba parte
+  de una versión mostrable: devolvía resultados de Córdoba capital y dependía de
+  scraping.
 - **El consumo potencial no es facturación.** Sale de un modelo de gravedad de
   Huff sobre la población censal y el ticket del rubro. Sirve para ordenar y
   comparar locales entre sí. No hay ningún dato de ventas con el cual validarlo.
@@ -232,13 +230,12 @@ la facturación real y el API prioriza ese tier sobre el del modelo.
 
 ## Deuda técnica conocida
 
-- `apps/web/src/components/visor.tsx` (~700 líneas) concentra estado, fetch,
-  filtrado y sincronización de URL. Candidato natural a hooks
-  (`useRadius`, `useGaps`, `useDeskUrl`).
-- Las APIs validan con regex y rangos numéricos a mano, sin esquema declarativo.
+- El radio, los huecos y la URL del visor viven en `useRadius`, `useGaps` y
+  `useDeskUrl`. El filtrado del mapa sigue en `visor.tsx`.
+- Las APIs leen los parámetros con el esquema de `src/lib/query.ts`.
 - `tax_brackets.annual_cap_ars` en `NULL`: la señal fiscal está apagada hasta que se
   carguen los topes vigentes de ARCA.
-- No hay CI: todas las verificaciones son locales.
+- GitHub Actions corre `make selftest` y pytest contra PostGIS.
 - No hay migraciones. Ver [Cambios en el esquema](#cambios-en-el-esquema).
 - La cobertura por rubro necesita que el punto caiga dentro de un barrio cargado.
   Fuera de eso, `cityName` y `coverage` vienen en `null` a propósito: es preferible

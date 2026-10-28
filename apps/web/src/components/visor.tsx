@@ -1,10 +1,13 @@
 "use client";
 
-import type { FeatureCollection, GeoJsonProperties, Polygon } from "geojson";
+import type { FeatureCollection, GeoJsonProperties } from "geojson";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Inspector } from "@/components/inspector";
 import type { ZoneTip } from "@/components/map-canvas";
+import { useGaps } from "@/hooks/use-gaps";
+import { CENTER, VILLA_NUEVA, placeOf, readDesk, useDeskUrl } from "@/hooks/use-desk-url";
+import { useRadius } from "@/hooks/use-radius";
 
 const MapCanvas = dynamic(() => import("@/components/map-canvas").then((mod) => mod.MapCanvas), {
   ssr: false,
@@ -19,13 +22,9 @@ import {
   type BusinessPoint,
   type GapCell,
   type Overview,
-  type RadiusReport,
   type TierScale,
 } from "@/lib/domain";
 import { LAND_STOPS, POP_STOPS, USD_ARS, formatLandUsd, landUsd } from "@/lib/land";
-
-type GapCollection = FeatureCollection<Polygon, GapCell>;
-const EMPTY_GAPS: GapCollection = { type: "FeatureCollection", features: [] };
 
 type ZoneProps = GeoJsonProperties & {
   shade?: number;
@@ -35,8 +34,6 @@ type ZoneProps = GeoJsonProperties & {
 };
 
 type CityBounds = [[number, number], [number, number]];
-
-const CENTER = { lng: -63.2436, lat: -32.4103 };
 
 // Si /api/overview todavía no respondió, la leyenda no inventa una escala: los
 // cinco niveles quedan sin rango ni conteo hasta que lleguen los datos.
@@ -55,36 +52,6 @@ function tierRange(item: TierScale, next: TierScale | undefined): string {
       ? `${(value / 1_000_000).toFixed(value % 1_000_000 === 0 ? 0 : 1)} M`
       : `${Math.round(value / 1000)} k`;
   return item.tier === 1 ? `hasta ${compact(next?.min ?? 0)}` : `desde ${compact(item.min)}`;
-}
-
-interface DeskState {
-  category: string;
-  radiusM: number;
-  query: string;
-  selectedId: string | null;
-  center: { lng: number; lat: number };
-  place: "vm" | "vn";
-  choropleth: "off" | "density" | "land";
-}
-
-function clampRadius(value: number): number {
-  if (!Number.isFinite(value)) return 500;
-  const snapped = Math.round(value / 50) * 50;
-  return Math.min(2000, Math.max(100, snapped));
-}
-
-const VILLA_NUEVA = { lng: -63.251, lat: -32.43 };
-
-function inCity(lat: number, lng: number): boolean {
-  return lat <= -32.32 && lat >= -32.56 && lng >= -63.36 && lng <= -63.14;
-}
-
-function placeOf(point: { lat: number; lng: number }): "vm" | "vn" | null {
-  const villaNueva = Math.hypot(point.lat - VILLA_NUEVA.lat, point.lng - VILLA_NUEVA.lng);
-  const villaMaria = Math.hypot(point.lat - CENTER.lat, point.lng - CENTER.lng);
-  if (villaNueva < 0.02 && villaNueva < villaMaria) return "vn";
-  if (villaMaria < 0.02) return "vm";
-  return null;
 }
 
 function zonePlace(properties: { city?: string } | null | undefined): "vm" | "vn" {
@@ -149,43 +116,6 @@ function inFeatures(features: Array<{ geometry: GeoJSON.Geometry }>, lng: number
   return features.some((feature) => geometryContains(feature.geometry, lng, lat));
 }
 
-function readDesk(): DeskState {
-  const params = new URLSearchParams(window.location.search);
-  const meters = params.get("m");
-  const lat = Number(params.get("lat"));
-  const lng = Number(params.get("lng"));
-  const center = Number.isFinite(lat) && Number.isFinite(lng) && inCity(lat, lng) ? { lat, lng } : CENTER;
-  const ciudad = params.get("ciudad");
-  const capa = params.get("capa");
-  return {
-    category: params.get("rubro") ?? "",
-    radiusM: meters == null || meters === "" ? 500 : clampRadius(Number(meters)),
-    query: params.get("q") ?? "",
-    selectedId: params.get("id"),
-    center,
-    place: ciudad === "villa-nueva" ? "vn" : ciudad === "villa-maria" ? "vm" : (placeOf(center) ?? "vm"),
-    choropleth: capa === "suelo" ? "land" : capa === "habitantes" ? "density" : "off",
-  };
-}
-
-function deskParams(state: DeskState): string {
-  const params = new URLSearchParams();
-  if (state.category) params.set("rubro", state.category);
-  if (state.radiusM !== 500) params.set("m", String(state.radiusM));
-  if (state.query.trim()) params.set("q", state.query.trim());
-  if (state.selectedId) params.set("id", state.selectedId);
-  if (state.place === "vn") params.set("ciudad", "villa-nueva");
-  if (state.choropleth === "land") params.set("capa", "suelo");
-  if (state.choropleth === "density") params.set("capa", "habitantes");
-  const moved =
-    Math.abs(state.center.lat - CENTER.lat) > 0.00001 || Math.abs(state.center.lng - CENTER.lng) > 0.00001;
-  if (moved) {
-    params.set("lat", state.center.lat.toFixed(5));
-    params.set("lng", state.center.lng.toFixed(5));
-  }
-  return params.toString();
-}
-
 export function Visor() {
   const initial = useState(readDesk)[0];
   const [points, setPoints] = useState<BusinessPoint[]>([]);
@@ -194,8 +124,6 @@ export function Visor() {
     features: [],
   });
   const [overview, setOverview] = useState<Overview | null>(null);
-  const [report, setReport] = useState<RadiusReport | null>(null);
-  const [gaps, setGaps] = useState<GapCollection>(EMPTY_GAPS);
   const [detail, setDetail] = useState<BusinessDetail | null>(null);
   const [center, setCenter] = useState(initial.center);
   const [radiusM, setRadiusM] = useState(initial.radiusM);
@@ -213,16 +141,38 @@ export function Visor() {
   const [frameBounds, setFrameBounds] = useState<CityBounds | null>(null);
   const [place, setPlace] = useState<"vm" | "vn" | null>(initial.place);
   const framed = useRef(false);
-  const [loading, setLoading] = useState(false);
   const [booting, setBooting] = useState(true);
   const [dbError, setDbError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
   const detailTicket = useRef(0);
   const pendingUrlId = useRef(initial.selectedId);
-  const lastPushed = useRef(
-    `${initial.category}|${initial.radiusM}|${initial.selectedId ?? ""}|${initial.place}|${initial.choropleth}`,
-  );
   const openRef = useRef<(point: BusinessPoint) => void>(() => {});
+  const { report, loading } = useRadius(center, radiusM);
+  const gaps = useGaps(category);
+  useDeskUrl(
+    { category, radiusM, query, selectedId, center, place: place ?? "vm", choropleth },
+    (next) => {
+      setCategory(next.category);
+      setRadiusM(next.radiusM);
+      setCenter(next.center);
+      setQuery(next.query);
+      setListOpen(next.query.trim().length >= 2);
+      setSelectedId(next.selectedId);
+      setPlace(next.place);
+      setChoropleth(next.choropleth);
+      if (!next.selectedId) {
+        const bounds = extentOf(zones.features.filter((feature) => zonePlace(feature.properties) === next.place));
+        if (bounds) {
+          setFrameBounds(bounds);
+          setFrameToken((value) => value + 1);
+        }
+        setDetail(null);
+        return;
+      }
+      const point = points.find((item) => item.id === next.selectedId);
+      if (point) openRef.current(point);
+    },
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -260,97 +210,12 @@ export function Visor() {
   }, [attempt]);
 
   useEffect(() => {
-    const handle = window.setTimeout(async () => {
-      setLoading(true);
-      try {
-        const response = await fetch(
-          `/api/radius?lat=${center.lat}&lng=${center.lng}&meters=${radiusM}`,
-        );
-        if (!response.ok) throw new Error("radio");
-        setReport(await response.json());
-      } catch {
-        setReport(null);
-      } finally {
-        setLoading(false);
-      }
-    }, 220);
-    return () => window.clearTimeout(handle);
-  }, [center, radiusM]);
-
-  useEffect(() => {
-    if (!category) {
-      setGaps(EMPTY_GAPS);
-      return;
-    }
-    let cancelled = false;
-    void fetch(`/api/gaps?category=${encodeURIComponent(category)}`)
-      .then((response) => (response.ok ? response.json() : EMPTY_GAPS))
-      .then((json: GapCollection) => {
-        if (!cancelled) setGaps(json?.type === "FeatureCollection" ? json : EMPTY_GAPS);
-      })
-      .catch(() => {
-        if (!cancelled) setGaps(EMPTY_GAPS);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [category]);
-
-  useEffect(() => {
     const id = pendingUrlId.current;
     if (!id || points.length === 0) return;
     const point = points.find((item) => item.id === id);
     pendingUrlId.current = null;
     if (point) openRef.current(point);
   }, [points]);
-
-  useEffect(() => {
-    const onPop = () => {
-      const next = readDesk();
-      lastPushed.current = `${next.category}|${next.radiusM}|${next.selectedId ?? ""}|${next.place}|${next.choropleth}`;
-      setCategory(next.category);
-      setRadiusM(next.radiusM);
-      setCenter(next.center);
-      setQuery(next.query);
-      setListOpen(next.query.trim().length >= 2);
-      setSelectedId(next.selectedId);
-      setPlace(next.place);
-      setChoropleth(next.choropleth);
-      if (!next.selectedId) {
-        const bounds = extentOf(zones.features.filter((feature) => zonePlace(feature.properties) === next.place));
-        if (bounds) {
-          setFrameBounds(bounds);
-          setFrameToken((value) => value + 1);
-        }
-      }
-      if (!next.selectedId) {
-        setDetail(null);
-        return;
-      }
-      const point = points.find((item) => item.id === next.selectedId);
-      if (point) openRef.current(point);
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, [points, zones]);
-
-  useEffect(() => {
-    const handle = window.setTimeout(() => {
-      const state = { category, radiusM, query, selectedId, center, place: place ?? "vm", choropleth };
-      const next = deskParams(state);
-      const current = window.location.search.replace(/^\?/, "");
-      if (next === current) return;
-      const meaningful = `${category}|${radiusM}|${selectedId ?? ""}|${place ?? "vm"}|${choropleth}`;
-      const url = next ? `${window.location.pathname}?${next}` : window.location.pathname;
-      if (meaningful !== lastPushed.current) {
-        lastPushed.current = meaningful;
-        window.history.pushState(null, "", url);
-      } else {
-        window.history.replaceState(null, "", url);
-      }
-    }, 280);
-    return () => window.clearTimeout(handle);
-  }, [category, radiusM, query, selectedId, center, place, choropleth]);
 
   function openDetail(id: string) {
     const ticket = ++detailTicket.current;

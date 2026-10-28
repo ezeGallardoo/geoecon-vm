@@ -1,10 +1,13 @@
 import { databaseUnavailable, prisma } from "@/lib/prisma";
 import type { BusinessPoint } from "@/lib/domain";
+import { invalidQuery, parseCategory } from "@/lib/query";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const category = new URL(request.url).searchParams.get("category");
+  const parsed = parseCategory(new URL(request.url).searchParams.get("category"));
+  if (!parsed.ok) return invalidQuery(parsed.error);
+  const category = parsed.value;
   try {
     const rows = await prisma.$queryRaw<BusinessPoint[]>`
       SELECT

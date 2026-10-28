@@ -1,0 +1,48 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: make selftest
+
+  postgis:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: geoecon
+          POSTGRES_PASSWORD: geoecon
+          POSTGRES_DB: geoecon
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U geoecon -d geoecon"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: sudo apt-get update && sudo apt-get install -y postgresql-client
+      - run: |
+          PGPASSWORD=geoecon psql -h localhost -U geoecon -d geoecon -v ON_ERROR_STOP=1 -f db/init/001_schema.sql
+          PGPASSWORD=geoecon psql -h localhost -U geoecon -d geoecon -v ON_ERROR_STOP=1 -f db/init/002_functions.sql
+          PGPASSWORD=geoecon psql -h localhost -U geoecon -d geoecon -v ON_ERROR_STOP=1 -f db/init/003_seed.sql
+      - working-directory: services/ingest
+        run: pip install -r requirements.txt -r requirements-dev.txt
+      - working-directory: services/ingest
+        run: python -m pytest -q
+        env:
+          DATABASE_URL: postgresql://geoecon:geoecon@localhost:5432/geoecon

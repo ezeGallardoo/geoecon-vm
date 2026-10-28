@@ -48,10 +48,16 @@ def main() -> None:
     )
 
     sub.add_parser("selftest", help="Pruebas locales sin base")
+    sub.add_parser("snapshot", help="Escribe la grilla de 400 m para la demo estática")
 
     args = parser.parse_args()
     if args.command == "selftest":
         _selftest()
+        return
+    if args.command == "snapshot":
+        from geoecon.snapshot import write_grid
+
+        print(f"grilla: {write_grid()}")
         return
 
     settings = load_settings()
@@ -146,6 +152,7 @@ def _selftest() -> None:
     # arrastraba httpx, shapefile, pyproj y shapely, y hacía que este comando
     # fallara en un host donde nunca se instalaron.
     from geoecon.naming import zone_name
+    from geoecon.snapshot import grid_collection
 
     assert zone_name("Rural Intensiva de PequeÃ±a Escala") == "Rural Intensiva de Pequeña Escala"
     assert zone_name("Circunvalacion y RN N158") == "Circunvalacion y RN N158"
@@ -155,6 +162,9 @@ def _selftest() -> None:
     assert weekly_hours_from_osm("horario raro") is None
     assert cuit_is_valid(_sample_cuit())
     assert cuit_is_valid("20-00000000-0") is False
+    grid = grid_collection()
+    assert len(grid["features"]) == 380
+    assert grid["features"][0]["properties"]["cell_m"] == 400
     print("selftest ok")
 
 

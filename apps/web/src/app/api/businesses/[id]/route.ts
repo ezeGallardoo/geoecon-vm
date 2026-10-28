@@ -1,18 +1,17 @@
 import { databaseUnavailable, prisma } from "@/lib/prisma";
 import type { BusinessDetail } from "@/lib/domain";
+import { invalidQuery, parseUuid } from "@/lib/query";
 
 export const dynamic = "force-dynamic";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  const { id } = await context.params;
-  if (!UUID.test(id)) {
-    return Response.json({ error: "Identificador inválido." }, { status: 400 });
-  }
+  const { id: rawId } = await context.params;
+  const parsed = parseUuid(rawId);
+  if (!parsed.ok) return invalidQuery(parsed.error);
+  const id = parsed.value;
 
   try {
     const rows = await prisma.$queryRaw<BusinessDetail[]>`
